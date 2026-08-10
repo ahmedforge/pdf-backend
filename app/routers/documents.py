@@ -1,13 +1,17 @@
-from fastapi import APIRouter, UploadFile, File, HTTPException
+import os
+from datetime import datetime, timezone
+
+from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
+from fastapi.responses import FileResponse
+
 from app.repositories.document_repository import (
     insert_document,
     get_all_documents,
     get_document_by_id,
     delete_document
 )
-from fastapi.responses import FileResponse
-from datetime import datetime
-import os
+
+from app.security import get_current_user
 
 from app.services.file_service import (
     validate_filename,
@@ -23,8 +27,10 @@ MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
 
 
 @router.post("/upload")
-def upload_file(file: UploadFile = File(...)):
-
+def upload_file(
+    file: UploadFile = File(...),
+    current_user=Depends(get_current_user)
+):
     if not file.filename:
         raise HTTPException(
             status_code=400,
@@ -61,7 +67,6 @@ def upload_file(file: UploadFile = File(...)):
 
     try:
         with open(file_path, "wb") as buffer:
-
             while True:
                 chunk = file.file.read(chunk_size)
 
@@ -83,14 +88,16 @@ def upload_file(file: UploadFile = File(...)):
             os.remove(file_path)
 
         raise
+
     size_bytes = os.path.getsize(file_path)
-    uploaded_at = datetime.now().isoformat()
+    uploaded_at = datetime.now(timezone.utc)
 
     insert_document(
-    filename,
-    size_bytes,
-    uploaded_at
-)
+        filename,
+        size_bytes,
+        uploaded_at,
+        current_user.id
+    )
 
     return {
         "message": "File uploaded successfully",
@@ -99,8 +106,10 @@ def upload_file(file: UploadFile = File(...)):
 
 
 @router.get("/files")
-def list_files():
-    documents = get_all_documents()
+def list_files(
+    current_user=Depends(get_current_user)
+):
+    documents = get_all_documents(current_user.id)
 
     return {
         "files": documents
@@ -108,8 +117,14 @@ def list_files():
 
 
 @router.delete("/files/{document_id}")
-def delete_file(document_id: int):
-    document = get_document_by_id(document_id)
+def delete_file(
+    document_id: int,
+    current_user=Depends(get_current_user)
+):
+    document = get_document_by_id(
+        document_id,
+        current_user.id
+    )
 
     if not document:
         raise HTTPException(
@@ -122,7 +137,10 @@ def delete_file(document_id: int):
 
     os.remove(file_path)
 
-    delete_document(filename)
+    delete_document(
+        document_id,
+        current_user.id
+    )
 
     return {
         "message": "File deleted successfully",
@@ -132,8 +150,14 @@ def delete_file(document_id: int):
 
 
 @router.get("/download/{document_id}")
-def download_file(document_id: int):
-    document = get_document_by_id(document_id)
+def download_file(
+    document_id: int,
+    current_user=Depends(get_current_user)
+):
+    document = get_document_by_id(
+        document_id,
+        current_user.id
+    )
 
     if not document:
         raise HTTPException(
@@ -150,15 +174,23 @@ def download_file(document_id: int):
         media_type="application/pdf"
     )
 
+
 @router.get("/extract/{document_id}")
-def extract_pdf_text(document_id: int):
-    document = get_document_by_id(document_id)
+def extract_pdf_text(
+    document_id: int,
+    current_user=Depends(get_current_user)
+):
+    document = get_document_by_id(
+        document_id,
+        current_user.id
+    )
 
     if not document:
         raise HTTPException(
             status_code=404,
             detail="Document not found"
         )
+
     filename = document.filename
     filename, file_path = get_existing_file(filename)
 
@@ -180,8 +212,14 @@ def extract_pdf_text(document_id: int):
 
 
 @router.get("/info/{document_id}")
-def get_pdf_info(document_id: int):
-    document = get_document_by_id(document_id)
+def get_pdf_info(
+    document_id: int,
+    current_user=Depends(get_current_user)
+):
+    document = get_document_by_id(
+        document_id,
+        current_user.id
+    )
 
     if not document:
         raise HTTPException(
@@ -218,9 +256,17 @@ def get_pdf_info(document_id: int):
             detail=f"PDF info extraction failed: {str(e)}"
         )
 
+
 @router.get("/search/{document_id}")
-def search_pdf_text(document_id: int, query: str):
-    document = get_document_by_id(document_id)
+def search_pdf_text(
+    document_id: int,
+    query: str,
+    current_user=Depends(get_current_user)
+):
+    document = get_document_by_id(
+        document_id,
+        current_user.id
+    )
 
     if not document:
         raise HTTPException(

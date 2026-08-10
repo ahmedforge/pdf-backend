@@ -1,13 +1,16 @@
+from sqlalchemy import select
+
 from app.database import SessionLocal
 from app.models.document import Document
 
 
-def insert_document(filename, size_bytes, uploaded_at):
+def insert_document(filename, size_bytes, uploaded_at, owner_id):
     with SessionLocal() as db:
         document = Document(
             filename=filename,
             size_bytes=size_bytes,
-            uploaded_at=uploaded_at
+            uploaded_at=uploaded_at,
+            owner_id=owner_id
         )
 
         db.add(document)
@@ -17,13 +20,13 @@ def insert_document(filename, size_bytes, uploaded_at):
         return document
 
 
-def get_all_documents():
+def get_all_documents(owner_id: int):
     with SessionLocal() as db:
-        documents = (
-            db.query(Document)
+        documents = db.scalars(
+            select(Document)
+            .where(Document.owner_id == owner_id)
             .order_by(Document.id.desc())
-            .all()
-        )
+        ).all()
 
         return [
             {
@@ -36,14 +39,24 @@ def get_all_documents():
         ]
 
 
-def get_document_by_id(document_id: int):
+def get_document_by_id(document_id: int, owner_id: int):
     with SessionLocal() as db:
-        return db.get(Document, document_id)
+        return db.scalar(
+            select(Document).where(
+                Document.id == document_id,
+                Document.owner_id == owner_id
+            )
+        )
 
 
-def delete_document(document_id: int):
+def delete_document(document_id: int, owner_id: int):
     with SessionLocal() as db:
-        document = db.get(Document, document_id)
+        document = db.scalar(
+            select(Document).where(
+                Document.id == document_id,
+                Document.owner_id == owner_id
+            )
+        )
 
         if document:
             db.delete(document)
