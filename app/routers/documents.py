@@ -19,6 +19,9 @@ from app.services.file_service import (
 )
 
 from app.services.pdf_service import extract_text_from_pdf
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 router = APIRouter()
@@ -98,6 +101,12 @@ def upload_file(
         uploaded_at,
         current_user.id
     )
+    insert_document(
+    filename,
+    size_bytes,
+    uploaded_at,
+    current_user.id
+    )
 
     return {
         "message": "File uploaded successfully",
@@ -140,6 +149,11 @@ def delete_file(
     delete_document(
         document_id,
         current_user.id
+    )
+    logger.info(
+    "User %s deleted document %s",
+    current_user.id,
+    document_id
     )
 
     return {

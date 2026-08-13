@@ -11,7 +11,9 @@ from app.security import (
     verify_password,
     create_access_token
 )
+import logging
 
+logger = logging.getLogger(__name__)
 
 router = APIRouter(
     prefix="/auth",
@@ -46,6 +48,7 @@ def register(data: RegisterRequest):
         email=email,
         hashed_password=hashed_password
     )
+    logger.info("User registered: %s", user.email)
 
     return {
         "message": "User registered successfully",
@@ -66,7 +69,7 @@ def login(data: LoginRequest):
         )
 
     access_token = create_access_token(user.id)
-
+    logger.info("User logged in: %s", user.email)
     return {
         "access_token": access_token,
         "token_type": "bearer"
