@@ -4,6 +4,7 @@ from fastapi.responses import FileResponse
 from pypdf import PdfReader
 from datetime import datetime
 from app.routers.auth import router as auth_router
+import app.logging_config
 
 app = FastAPI()
 app.include_router(documents_router)
@@ -34,4 +35,6 @@ def about():
 
 
 
-
+@app.get("/health")
+def health():
+    return {"status": "ok"}
