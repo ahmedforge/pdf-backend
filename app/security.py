@@ -1,4 +1,3 @@
-import os
 from datetime import datetime, timedelta, timezone
 
 import jwt
@@ -6,12 +5,13 @@ from fastapi import Depends, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pwdlib import PasswordHash
 
+from app.config import settings
 from app.repositories.user_repository import get_user_by_id
 
 
 password_hash = PasswordHash.recommended()
 
-SECRET_KEY = os.environ["JWT_SECRET_KEY"]
+SECRET_KEY = settings.jwt_secret_key
 ALGORITHM = "HS256"
 
 bearer_scheme = HTTPBearer()
