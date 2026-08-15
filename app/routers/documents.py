@@ -1,8 +1,14 @@
 import os
 from datetime import datetime, timezone
 
+
 from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
 from fastapi.responses import FileResponse
+from app.services.chunk_service import chunk_text
+from app.repositories.chunk_repository import (
+    save_document_chunks,
+    get_document_chunks
+)
 
 from app.repositories.document_repository import (
     insert_document,
@@ -18,7 +24,10 @@ from app.services.file_service import (
     get_existing_file
 )
 
-from app.services.pdf_service import extract_text_from_pdf
+from app.services.pdf_service import (
+    extract_text_from_pdf,
+    clean_extracted_text
+)
 import logging
 
 logger = logging.getLogger(__name__)
@@ -95,22 +104,35 @@ def upload_file(
     size_bytes = os.path.getsize(file_path)
     uploaded_at = datetime.now(timezone.utc)
 
-    insert_document(
-        filename,
-        size_bytes,
-        uploaded_at,
-        current_user.id
-    )
-    insert_document(
+    
+    document = insert_document(
     filename,
     size_bytes,
     uploaded_at,
     current_user.id
     )
+    reader, text = extract_text_from_pdf(file_path)
+
+    text = clean_extracted_text(text)
+
+    chunks = chunk_text(text)
+
+    save_document_chunks(
+    document.id,
+    chunks
+    )
+
+    logger.info(
+    "User %s uploaded %s",
+    current_user.id,
+    filename
+    )
 
     return {
-        "message": "File uploaded successfully",
-        "filename": filename
+    "message": "File uploaded successfully",
+    "filename": filename,
+    "document_id": document.id,
+    "chunks_created": len(chunks)
     }
 
 
@@ -316,3 +338,33 @@ def search_pdf_text(
             status_code=500,
             detail=f"PDF search failed: {str(e)}"
         )
+
+
+
+@router.get("/files/{document_id}/chunks")
+def list_document_chunks(
+    document_id: int,
+    limit: int = 5,
+    current_user=Depends(get_current_user)
+):
+    document = get_document_by_id(
+        document_id,
+        current_user.id
+    )
+
+    if not document:
+        raise HTTPException(
+            status_code=404,
+            detail="Document not found"
+        )
+
+    chunks = get_document_chunks(
+        document_id,
+        limit
+    )
+
+    return {
+        "document_id": document_id,
+        "returned_chunks": len(chunks),
+        "chunks": chunks
+    }

@@ -4,3 +4,7 @@ __pycache__/
 uploads/
 *.pyc
 *.db
+
+__pycache__/
+*.pyc
+.env
