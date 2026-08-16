@@ -1,6 +1,7 @@
 from sqlalchemy import ForeignKey, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 from pgvector.sqlalchemy import Vector
+
 from app.database import Base
 
 
@@ -12,29 +13,30 @@ class Chunk(Base):
     document_id: Mapped[int] = mapped_column(
         ForeignKey(
             "documents.id",
-            ondelete="CASCADE"
+            ondelete="CASCADE",
         ),
         nullable=False,
-        index=True
+        index=True,
     )
 
     chunk_index: Mapped[int] = mapped_column(
-        nullable=False
+        nullable=False,
     )
 
     chunk_text: Mapped[str] = mapped_column(
         Text,
-        nullable=False
+        nullable=False,
     )
+
     embedding: Mapped[list[float] | None] = mapped_column(
-    Vector(1536),
-    nullable=True
+        Vector(384),
+        nullable=True,
     )
 
     __table_args__ = (
         UniqueConstraint(
             "document_id",
             "chunk_index",
-            name="uq_document_chunk_index"
+            name="uq_document_chunk_index",
         ),
     )

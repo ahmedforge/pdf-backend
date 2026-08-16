@@ -1,15 +1,16 @@
-from openai import OpenAI
+from sentence_transformers import SentenceTransformer
 
 from app.config import settings
 
 
-client = OpenAI(api_key=settings.openai_api_key)
+model = SentenceTransformer(settings.embedding_model)
 
 
 def generate_embedding(text: str) -> list[float]:
-    response = client.embeddings.create(
-        model=settings.embedding_model,
-        input=text,
-    )
+    embedding = model.encode(text)
+    return embedding.tolist()
 
-    return response.data[0].embedding
+
+def generate_embeddings(texts: list[str]) -> list[list[float]]:
+    embeddings = model.encode(texts)
+    return embeddings.tolist()

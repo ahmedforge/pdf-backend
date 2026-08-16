@@ -7,7 +7,8 @@ from fastapi.responses import FileResponse
 from app.services.chunk_service import chunk_text
 from app.repositories.chunk_repository import (
     save_document_chunks,
-    get_document_chunks
+    get_document_chunks,
+    semantic_search_chunks,
 )
 
 from app.repositories.document_repository import (
@@ -367,4 +368,46 @@ def list_document_chunks(
         "document_id": document_id,
         "returned_chunks": len(chunks),
         "chunks": chunks
+    }
+@router.get("/files/{document_id}/semantic-search")
+def semantic_search_document(
+    document_id: int,
+    query: str,
+    limit: int = 5,
+    current_user=Depends(get_current_user),
+):
+    document = get_document_by_id(
+        document_id,
+        current_user.id,
+    )
+
+    if not document:
+        raise HTTPException(
+            status_code=404,
+            detail="Document not found",
+        )
+
+    if not query.strip():
+        raise HTTPException(
+            status_code=400,
+            detail="Search query cannot be empty",
+        )
+
+    if limit < 1 or limit > 20:
+        raise HTTPException(
+            status_code=400,
+            detail="Limit must be between 1 and 20",
+        )
+
+    results = semantic_search_chunks(
+        document_id=document_id,
+        query=query,
+        limit=limit,
+    )
+
+    return {
+        "document_id": document_id,
+        "query": query,
+        "returned_chunks": len(results),
+        "results": results,
     }
