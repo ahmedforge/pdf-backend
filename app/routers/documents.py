@@ -2,6 +2,7 @@ import os
 from datetime import datetime, timezone
 from app.services.llm_service import generate_answer
 from app.config import settings
+import re
 
 from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
 from fastapi.responses import FileResponse
@@ -464,7 +465,7 @@ def ask_document(
         }
 
     context = "\n\n".join(
-        chunk["chunk_text"]
+        f"[Chunk {chunk['chunk_index']}]\n{chunk['chunk_text']}"
         for chunk in relevant_chunks
     )
 
@@ -477,8 +478,8 @@ Rules:
 - Do not guess.
 - If the context is insufficient, say:
   "I could not find the answer in the document."
-- Prefer conclusions supported by multiple parts of the context.
-- A character being mentioned does not automatically make them the main character.
+- Cite supporting chunks using this format: [Chunk 12]
+- Only cite chunk numbers that appear in the provided context.
 
 Context:
 {context}
@@ -495,18 +496,43 @@ Answer:
         raise HTTPException(
             status_code=503,
             detail=str(exc),
+        )
+
+    cited_chunk_indexes = {
+        int(match)
+        for match in re.findall(r"\[Chunk (\d+)\]", answer)
+    }
+
+    valid_chunk_indexes = {
+        chunk["chunk_index"]
+        for chunk in relevant_chunks
+    }
+
+    invalid_citations = (
+        cited_chunk_indexes - valid_chunk_indexes
     )
+
+    if invalid_citations:
+        answer = re.sub(
+            r"\[Chunk (\d+)\]",
+            lambda match: (
+                match.group(0)
+                if int(match.group(1)) in valid_chunk_indexes
+                else ""
+            ),
+            answer,
+        ).strip()
 
     return {
         "document_id": document_id,
         "question": question,
         "answer": answer,
         "sources": [
-    {
-        "chunk_index": chunk["chunk_index"],
-        "similarity": chunk["similarity"],
-        "preview": chunk["chunk_text"][:300],
-    }
-    for chunk in relevant_chunks
-    ],
+            {
+                "chunk_index": chunk["chunk_index"],
+                "similarity": chunk["similarity"],
+                "preview": chunk["chunk_text"][:300],
+            }
+            for chunk in relevant_chunks
+        ],
     }
