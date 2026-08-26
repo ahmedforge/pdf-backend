@@ -62,14 +62,17 @@ def semantic_search_chunks(
 ):
     query_embedding = generate_embedding(query)
 
+    distance = Chunk.embedding.cosine_distance(query_embedding)
+
     with SessionLocal() as db:
-        chunks = db.scalars(
-            select(Chunk)
+        rows = db.execute(
+            select(
+                Chunk,
+                distance.label("distance"),
+            )
             .where(Chunk.document_id == document_id)
             .where(Chunk.embedding.is_not(None))
-            .order_by(
-                Chunk.embedding.cosine_distance(query_embedding)
-            )
+            .order_by(distance)
             .limit(limit)
         ).all()
 
@@ -78,6 +81,7 @@ def semantic_search_chunks(
                 "id": chunk.id,
                 "chunk_index": chunk.chunk_index,
                 "chunk_text": chunk.chunk_text,
+                "similarity": round(1 - float(distance_value), 4),
             }
-            for chunk in chunks
+            for chunk, distance_value in rows
         ]

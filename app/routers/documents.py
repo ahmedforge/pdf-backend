@@ -1,6 +1,7 @@
 import os
 from datetime import datetime, timezone
 from app.services.llm_service import generate_answer
+from app.config import settings
 
 from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
 from fastapi.responses import FileResponse
@@ -416,6 +417,7 @@ def ask_document(
     document_id: int,
     question: str,
     top_k: int = 5,
+    min_similarity: float = settings.rag_min_similarity,
     current_user=Depends(get_current_user),
 ):
     document = get_document_by_id(
@@ -447,16 +449,36 @@ def ask_document(
         limit=top_k,
     )
 
+    relevant_chunks = [
+        chunk
+        for chunk in chunks
+        if chunk["similarity"] >= min_similarity
+    ]
+
+    if not relevant_chunks:
+        return {
+            "document_id": document_id,
+            "question": question,
+            "answer": "I could not find the answer in the document.",
+            "sources": [],
+        }
+
     context = "\n\n".join(
         chunk["chunk_text"]
-        for chunk in chunks
+        for chunk in relevant_chunks
     )
 
     prompt = f"""
 You are answering a question using only the document context below.
 
-If the answer is not contained in the context, say:
-"I could not find the answer in the document."
+Rules:
+- Use only the provided context.
+- Do not use outside knowledge.
+- Do not guess.
+- If the context is insufficient, say:
+  "I could not find the answer in the document."
+- Prefer conclusions supported by multiple parts of the context.
+- A character being mentioned does not automatically make them the main character.
 
 Context:
 {context}
@@ -467,11 +489,24 @@ Question:
 Answer:
 """
 
-    answer = generate_answer(prompt)
+    try:
+        answer = generate_answer(prompt)
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=503,
+            detail=str(exc),
+    )
 
     return {
         "document_id": document_id,
         "question": question,
         "answer": answer,
-        "sources": chunks,
+        "sources": [
+    {
+        "chunk_index": chunk["chunk_index"],
+        "similarity": chunk["similarity"],
+        "preview": chunk["chunk_text"][:300],
+    }
+    for chunk in relevant_chunks
+    ],
     }
