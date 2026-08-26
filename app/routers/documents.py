@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from app.services.llm_service import generate_answer
 from app.config import settings
 import re
-
+from app.services.rag_service import ask_document_rag
 from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
 from fastapi.responses import FileResponse
 from app.services.chunk_service import chunk_text
@@ -414,6 +414,7 @@ def semantic_search_document(
         "results": results,
     }
 @router.post("/files/{document_id}/ask")
+@router.post("/files/{document_id}/ask")
 def ask_document(
     document_id: int,
     question: str,
@@ -444,95 +445,21 @@ def ask_document(
             detail="top_k must be between 1 and 10",
         )
 
-    chunks = semantic_search_chunks(
-        document_id=document_id,
-        query=question,
-        limit=top_k,
-    )
-
-    relevant_chunks = [
-        chunk
-        for chunk in chunks
-        if chunk["similarity"] >= min_similarity
-    ]
-
-    if not relevant_chunks:
-        return {
-            "document_id": document_id,
-            "question": question,
-            "answer": "I could not find the answer in the document.",
-            "sources": [],
-        }
-
-    context = "\n\n".join(
-        f"[Chunk {chunk['chunk_index']}]\n{chunk['chunk_text']}"
-        for chunk in relevant_chunks
-    )
-
-    prompt = f"""
-You are answering a question using only the document context below.
-
-Rules:
-- Use only the provided context.
-- Do not use outside knowledge.
-- Do not guess.
-- If the context is insufficient, say:
-  "I could not find the answer in the document."
-- Cite supporting chunks using this format: [Chunk 12]
-- Only cite chunk numbers that appear in the provided context.
-
-Context:
-{context}
-
-Question:
-{question}
-
-Answer:
-"""
-
     try:
-        answer = generate_answer(prompt)
+        rag_result = ask_document_rag(
+            document_id=document_id,
+            question=question,
+            top_k=top_k,
+            min_similarity=min_similarity,
+        )
     except RuntimeError as exc:
         raise HTTPException(
             status_code=503,
             detail=str(exc),
         )
 
-    cited_chunk_indexes = {
-        int(match)
-        for match in re.findall(r"\[Chunk (\d+)\]", answer)
-    }
-
-    valid_chunk_indexes = {
-        chunk["chunk_index"]
-        for chunk in relevant_chunks
-    }
-
-    invalid_citations = (
-        cited_chunk_indexes - valid_chunk_indexes
-    )
-
-    if invalid_citations:
-        answer = re.sub(
-            r"\[Chunk (\d+)\]",
-            lambda match: (
-                match.group(0)
-                if int(match.group(1)) in valid_chunk_indexes
-                else ""
-            ),
-            answer,
-        ).strip()
-
     return {
         "document_id": document_id,
         "question": question,
-        "answer": answer,
-        "sources": [
-            {
-                "chunk_index": chunk["chunk_index"],
-                "similarity": chunk["similarity"],
-                "preview": chunk["chunk_text"][:300],
-            }
-            for chunk in relevant_chunks
-        ],
+        **rag_result,
     }
