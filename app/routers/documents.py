@@ -1,6 +1,6 @@
 import os
 from datetime import datetime, timezone
-
+from app.services.llm_service import generate_answer
 
 from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
 from fastapi.responses import FileResponse
@@ -410,4 +410,68 @@ def semantic_search_document(
         "query": query,
         "returned_chunks": len(results),
         "results": results,
+    }
+@router.post("/files/{document_id}/ask")
+def ask_document(
+    document_id: int,
+    question: str,
+    top_k: int = 5,
+    current_user=Depends(get_current_user),
+):
+    document = get_document_by_id(
+        document_id,
+        current_user.id,
+    )
+
+    if not document:
+        raise HTTPException(
+            status_code=404,
+            detail="Document not found",
+        )
+
+    if not question.strip():
+        raise HTTPException(
+            status_code=400,
+            detail="Question cannot be empty",
+        )
+
+    if top_k < 1 or top_k > 10:
+        raise HTTPException(
+            status_code=400,
+            detail="top_k must be between 1 and 10",
+        )
+
+    chunks = semantic_search_chunks(
+        document_id=document_id,
+        query=question,
+        limit=top_k,
+    )
+
+    context = "\n\n".join(
+        chunk["chunk_text"]
+        for chunk in chunks
+    )
+
+    prompt = f"""
+You are answering a question using only the document context below.
+
+If the answer is not contained in the context, say:
+"I could not find the answer in the document."
+
+Context:
+{context}
+
+Question:
+{question}
+
+Answer:
+"""
+
+    answer = generate_answer(prompt)
+
+    return {
+        "document_id": document_id,
+        "question": question,
+        "answer": answer,
+        "sources": chunks,
     }

@@ -11,6 +11,12 @@ class Document(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
 
+    owner_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id"),
+        index=True,
+        nullable=True
+        )
+
     filename: Mapped[str] = mapped_column(
         String(255),
         unique=True,
@@ -27,8 +33,4 @@ class Document(Base):
         default=lambda: datetime.now(timezone.utc),
         nullable=False
     )
-    owner_id: Mapped[int | None] = mapped_column(
-    ForeignKey("users.id"),
-    index=True,
-    nullable=True
-    )
+    
