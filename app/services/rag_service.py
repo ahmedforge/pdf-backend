@@ -3,6 +3,7 @@ import re
 from app.repositories.chunk_repository import semantic_search_chunks
 from app.services.llm.factory import get_llm_provider
 from app.config import settings
+from collections.abc import Iterator
 
 llm = get_llm_provider()
 def ask_document_rag(
@@ -43,8 +44,11 @@ You are answering a question using only the document context below.
 Rules:
 - Use only the provided context.
 - Do not use outside knowledge.
-- Do not guess.
-- If the context is insufficient, say:
+- Do not guess facts that are not supported by the context.
+- Infer reasonable conclusions when the context strongly supports them.
+- If multiple retrieved chunks repeatedly focus on the same character or subject,
+  you may conclude that character or subject is central to the document.
+- If the context truly does not contain enough information, say:
   "I could not find the answer in the document."
 - Cite supporting chunks using this format: [Chunk 12]
 - Only cite chunk numbers that appear in the provided context.
@@ -96,3 +100,56 @@ Answer:
             for chunk in relevant_chunks
         ],
     }
+def stream_document_rag(
+    document_id: int,
+    question: str,
+    top_k: int = 5,
+    min_similarity: float = 0.28,
+) -> Iterator[str]:
+    chunks = semantic_search_chunks(
+        document_id=document_id,
+        query=question,
+        limit=top_k,
+    )
+
+    relevant_chunks = [
+        chunk
+        for chunk in chunks
+        if chunk["similarity"] >= min_similarity
+    ]
+
+    if not relevant_chunks:
+        yield "I could not find the answer in the document."
+        return
+
+    context = "\n\n".join(
+        f"[Chunk {chunk['chunk_index']}]\n{chunk['chunk_text']}"
+        for chunk in relevant_chunks
+    )
+
+    prompt = f"""
+You are answering a question using only the document context below.
+
+Rules:
+- Use only the provided context.
+- Do not use outside knowledge.
+- Do not guess facts that are not supported by the context.
+- Infer reasonable conclusions when the context strongly supports them.
+- If multiple retrieved chunks repeatedly focus on the same character or subject,
+  you may conclude that character or subject is central to the document.
+- If the context truly does not contain enough information, say:
+  "I could not find the answer in the document."
+- Cite supporting chunks using this format: [Chunk 12]
+- Only cite chunk numbers that appear in the provided context.
+
+Context:
+{context}
+
+Question:
+{question}
+
+Answer:
+"""
+
+    for chunk in llm.stream(prompt):
+        yield chunk

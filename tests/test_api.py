@@ -159,3 +159,13 @@ def test_rag_service_removes_invalid_citations(monkeypatch):
 
     assert "[Chunk 42]" in result["answer"]
     assert "[Chunk 999]" not in result["answer"]
+def test_ask_stream_requires_authentication():
+    response = client.post(
+        "/files/1/ask/stream",
+        json={
+            "question": "What is this document about?",
+            "top_k": 5,
+        },
+    )
+
+    assert response.status_code in (401, 403)

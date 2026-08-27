@@ -1,8 +1,13 @@
 import os
 from datetime import datetime, timezone
 from app.config import settings
+from app.schemas.rag import AskRequest
+from fastapi.responses import StreamingResponse
 import re
-from app.services.rag_service import ask_document_rag
+from app.services.rag_service import (
+    ask_document_rag,
+    stream_document_rag,
+)
 from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
 from fastapi.responses import FileResponse
 from app.services.chunk_service import chunk_text
@@ -413,12 +418,9 @@ def semantic_search_document(
         "results": results,
     }
 @router.post("/files/{document_id}/ask")
-@router.post("/files/{document_id}/ask")
 def ask_document(
     document_id: int,
-    question: str,
-    top_k: int = 5,
-    min_similarity: float = settings.rag_min_similarity,
+    request: AskRequest,
     current_user=Depends(get_current_user),
 ):
     document = get_document_by_id(
@@ -432,23 +434,17 @@ def ask_document(
             detail="Document not found",
         )
 
-    if not question.strip():
-        raise HTTPException(
-            status_code=400,
-            detail="Question cannot be empty",
-        )
-
-    if top_k < 1 or top_k > 10:
-        raise HTTPException(
-            status_code=400,
-            detail="top_k must be between 1 and 10",
-        )
+    min_similarity = (
+        request.min_similarity
+        if request.min_similarity is not None
+        else settings.rag_min_similarity
+    )
 
     try:
         rag_result = ask_document_rag(
             document_id=document_id,
-            question=question,
-            top_k=top_k,
+            question=request.question,
+            top_k=request.top_k,
             min_similarity=min_similarity,
         )
     except RuntimeError as exc:
@@ -459,6 +455,38 @@ def ask_document(
 
     return {
         "document_id": document_id,
-        "question": question,
+        "question": request.question,
         **rag_result,
     }
+@router.post("/files/{document_id}/ask/stream")
+def ask_document_stream(
+    document_id: int,
+    request: AskRequest,
+    current_user=Depends(get_current_user),
+):
+    document = get_document_by_id(
+        document_id,
+        current_user.id,
+    )
+
+    if not document:
+        raise HTTPException(
+            status_code=404,
+            detail="Document not found",
+        )
+
+    min_similarity = (
+        request.min_similarity
+        if request.min_similarity is not None
+        else settings.rag_min_similarity
+    )
+
+    return StreamingResponse(
+        stream_document_rag(
+            document_id=document_id,
+            question=request.question,
+            top_k=request.top_k,
+            min_similarity=min_similarity,
+        ),
+        media_type="text/plain",
+    )
