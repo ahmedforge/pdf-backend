@@ -4,7 +4,7 @@ from app.repositories.chunk_repository import semantic_search_chunks
 from app.services.llm.factory import get_llm_provider
 from app.config import settings
 from collections.abc import Iterator
-
+from time import perf_counter
 llm = get_llm_provider()
 def ask_document_rag(
     document_id: int,
@@ -106,11 +106,17 @@ def stream_document_rag(
     top_k: int = 5,
     min_similarity: float = 0.28,
 ) -> Iterator[str]:
+    total_start = perf_counter()
+
+    retrieval_start = perf_counter()
+
     chunks = semantic_search_chunks(
         document_id=document_id,
         query=question,
         limit=top_k,
     )
+
+    retrieval_time = perf_counter() - retrieval_start
 
     relevant_chunks = [
         chunk
@@ -119,6 +125,14 @@ def stream_document_rag(
     ]
 
     if not relevant_chunks:
+        total_time = perf_counter() - total_start
+
+        print(
+            f"[RAG TIMING] retrieval={retrieval_time:.2f}s "
+            f"generation=0.00s "
+            f"total={total_time:.2f}s"
+        )
+
         yield "I could not find the answer in the document."
         return
 
@@ -151,5 +165,27 @@ Question:
 Answer:
 """
 
+    generation_start = perf_counter()
+
+    first_chunk_received = False
+
     for chunk in llm.stream(prompt):
+        if not first_chunk_received:
+            first_token_time = perf_counter() - generation_start
+
+            print(
+                f"[RAG TIMING] time_to_first_token={first_token_time:.2f}s"
+            )
+
+            first_chunk_received = True
+
         yield chunk
+
+    generation_time = perf_counter() - generation_start
+    total_time = perf_counter() - total_start
+
+    print(
+        f"[RAG TIMING] retrieval={retrieval_time:.2f}s "
+        f"generation={generation_time:.2f}s "
+        f"total={total_time:.2f}s"
+    )

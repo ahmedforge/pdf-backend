@@ -5,8 +5,27 @@ from pypdf import PdfReader
 from datetime import datetime
 from app.routers.auth import router as auth_router
 import app.logging_config
+from contextlib import asynccontextmanager
 
-app = FastAPI()
+from app.services.embedding_service import get_embedding_model
+from app.services.llm.factory import get_llm_provider
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Warm embedding model
+    get_embedding_model()
+
+    # Warm LLM
+    llm = get_llm_provider()
+    try:
+        llm.generate("Reply with OK.")
+    except RuntimeError as exc:
+        print(f"[STARTUP] LLM warmup skipped: {exc}")
+
+    yield
+app = FastAPI(
+    title="PDF Backend",
+    lifespan=lifespan,
+)
 app.include_router(documents_router)
 app.include_router(auth_router)
 
