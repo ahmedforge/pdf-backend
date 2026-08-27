@@ -1,6 +1,5 @@
 import os
 from datetime import datetime, timezone
-from app.services.llm_service import generate_answer
 from app.config import settings
 import re
 from app.services.rag_service import ask_document_rag

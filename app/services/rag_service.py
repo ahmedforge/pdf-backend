@@ -1,10 +1,10 @@
 import re
 
 from app.repositories.chunk_repository import semantic_search_chunks
-from app.services.llm_service import generate_answer
+from app.services.llm.factory import get_llm_provider
 from app.config import settings
 
-
+llm = get_llm_provider()
 def ask_document_rag(
     document_id: int,
     question: str,
@@ -58,7 +58,7 @@ Question:
 Answer:
 """
 
-    answer = generate_answer(prompt)
+    answer = llm.generate(prompt)
 
     valid_chunk_indexes = {
         chunk["chunk_index"]
