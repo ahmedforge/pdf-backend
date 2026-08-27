@@ -1,6 +1,9 @@
 from fastapi.testclient import TestClient
 from app.services.rag_service import ask_document_rag
 from app.main import app
+import app.routers.documents as documents_router
+from app.main import app
+from app.security import get_current_user
 
 
 client = TestClient(app)
@@ -169,3 +172,50 @@ def test_ask_stream_requires_authentication():
     )
 
     assert response.status_code in (401, 403)
+def test_ask_rate_limited(monkeypatch):
+    monkeypatch.setattr(
+        documents_router,
+        "check_rate_limit",
+        lambda user_id: False,
+    )
+
+    response = client.post(
+        "/files/1/ask",
+        json={
+            "question": "What is this document about?",
+            "top_k": 3,
+        },
+    )
+
+    assert response.status_code in (401, 403)
+def test_ask_returns_429_when_rate_limited(monkeypatch):
+    monkeypatch.setattr(
+        "app.routers.documents.check_rate_limit",
+        lambda user_id: False,
+    )
+
+    monkeypatch.setattr(
+        "app.routers.documents.get_document_by_id",
+        lambda document_id, user_id: object(),
+    )
+
+    class FakeUser:
+        id = 123
+
+    app.dependency_overrides[get_current_user] = lambda: FakeUser()
+
+    try:
+        response = client.post(
+            "/files/1/ask",
+            json={
+                "question": "What is this document about?",
+                "top_k": 3,
+            },
+        )
+
+        assert response.status_code == 429
+        assert response.json()["detail"] == (
+            "Too many RAG requests. Please try again later."
+        )
+    finally:
+        app.dependency_overrides.clear()

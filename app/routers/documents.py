@@ -1,6 +1,7 @@
 import os
 from datetime import datetime, timezone
 from app.config import settings
+from app.services.rate_limit_service import check_rate_limit
 from app.schemas.rag import AskRequest
 from fastapi.responses import StreamingResponse
 import re
@@ -433,6 +434,11 @@ def ask_document(
             status_code=404,
             detail="Document not found",
         )
+    if not check_rate_limit(current_user.id):
+        raise HTTPException(
+            status_code=429,
+            detail="Too many RAG requests. Please try again later.",
+    )
 
     min_similarity = (
         request.min_similarity
@@ -474,6 +480,16 @@ def ask_document_stream(
             status_code=404,
             detail="Document not found",
         )
+    if not check_rate_limit(current_user.id):
+        raise HTTPException(
+            status_code=429,
+            detail="Too many RAG requests. Please try again later.",
+    )
+    if not check_rate_limit(current_user.id):
+        raise HTTPException(
+            status_code=429,
+            detail="Too many RAG requests. Please try again later.",
+    )
 
     min_similarity = (
         request.min_similarity
