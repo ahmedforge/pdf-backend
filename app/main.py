@@ -6,6 +6,7 @@ from datetime import datetime
 from app.routers.auth import router as auth_router
 import app.logging_config
 from contextlib import asynccontextmanager
+from app.routers import health
 
 from app.services.embedding_service import get_embedding_model
 from app.services.llm.factory import get_llm_provider
@@ -27,6 +28,7 @@ app = FastAPI(
     lifespan=lifespan,
 )
 app.include_router(documents_router)
+app.include_router(health.router)
 app.include_router(auth_router)
 
 def extract_text_from_pdf(file_path: str):
@@ -54,6 +56,4 @@ def about():
 
 
 
-@app.get("/health")
-def health():
-    return {"status": "ok"}
+
