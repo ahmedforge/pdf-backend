@@ -1,49 +1,56 @@
+import httpx
 from fastapi import APIRouter, HTTPException
 from sqlalchemy import text
-import httpx
+
 from app.config import settings
+from app.database import engine
 
-from app.database import SessionLocal
-
-
-
-router = APIRouter(
-    prefix="/health",
-    tags=["health"],
-)
+router = APIRouter()
 
 
-@router.get("/live")
+@router.get("/health/live")
 def health_live():
-    return {
-        "status": "ok",
-    }
+    return {"status": "ok"}
 
 
-@router.get("/ready")
+@router.get("/health/ready")
 def health_ready():
     checks = {
         "database": False,
         "llm": False,
     }
 
+    # Database check
     try:
-        with SessionLocal() as db:
-            db.execute(text("SELECT 1"))
-
+        with engine.connect() as connection:
+            connection.execute(text("SELECT 1"))
         checks["database"] = True
-
     except Exception:
         pass
 
+    # LLM check
     try:
-        response = httpx.get(
-            "http://127.0.0.1:11434/api/tags",
-            timeout=3.0,
-        )
-        response.raise_for_status()
+        if settings.llm_provider == "ollama":
+            response = httpx.get(
+                "http://127.0.0.1:11434/api/tags",
+                timeout=5.0,
+            )
+            response.raise_for_status()
+            checks["llm"] = True
 
-        checks["llm"] = True
+        elif settings.llm_provider == "groq":
+            if not settings.groq_api_key:
+                raise RuntimeError("GROQ_API_KEY is not configured")
+
+            response = httpx.get(
+                "https://api.groq.com/openai/v1/models",
+                headers={
+                    "Authorization": f"Bearer {settings.groq_api_key}",
+                },
+                timeout=10.0,
+            )
+            response.raise_for_status()
+            checks["llm"] = True
 
     except Exception:
         pass
