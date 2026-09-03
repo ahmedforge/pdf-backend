@@ -7,6 +7,7 @@ from app.routers.auth import router as auth_router
 import app.logging_config
 from contextlib import asynccontextmanager
 from app.routers import health
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.services.embedding_service import get_embedding_model
 from app.services.llm.factory import get_llm_provider
@@ -26,6 +27,15 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="PDF Backend",
     lifespan=lifespan,
+)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:5173",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 app.include_router(documents_router)
 app.include_router(health.router)
