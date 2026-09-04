@@ -54,6 +54,7 @@ class GroqProvider(LLMProvider):
                     }
                 ],
                 "stream": True,
+                "include_reasoning": False,
             },
             timeout=httpx.Timeout(
                 connect=10.0,
