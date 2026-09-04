@@ -88,12 +88,12 @@ def test_rag_service_returns_grounded_answer(monkeypatch):
     assert len(result["sources"]) == 1
     assert result["sources"][0]["chunk_index"] == 42
     assert result["sources"][0]["similarity"] == 0.75
-def test_rag_service_rejects_weak_matches(monkeypatch):
+def test_rag_service_falls_back_to_best_chunk(monkeypatch):
     fake_chunks = [
         {
             "id": 1,
             "chunk_index": 10,
-            "chunk_text": "This chunk is unrelated.",
+            "chunk_text": "Ahmed Ali Hassan is the person described in this document.",
             "similarity": 0.12,
         }
     ]
@@ -105,23 +105,34 @@ def test_rag_service_rejects_weak_matches(monkeypatch):
     ):
         return fake_chunks
 
+    class FakeLLM:
+        def generate(self, prompt: str) -> str:
+            return "The person is Ahmed Ali Hassan. [Chunk 10]"
+
     monkeypatch.setattr(
         "app.services.rag_service.semantic_search_chunks",
         fake_semantic_search,
     )
 
+    monkeypatch.setattr(
+        "app.services.rag_service.llm",
+        FakeLLM(),
+    )
+
     result = ask_document_rag(
         document_id=1,
-        question="What is the main topic?",
+        question="Who is the person in this document?",
         top_k=5,
         min_similarity=0.28,
     )
 
     assert result["answer"] == (
-        "I could not find the answer in the document."
+        "The person is Ahmed Ali Hassan. [Chunk 10]"
     )
 
-    assert result["sources"] == []
+    assert len(result["sources"]) == 1
+    assert result["sources"][0]["chunk_index"] == 10
+    assert result["sources"][0]["similarity"] == 0.12
 def test_rag_service_removes_invalid_citations(monkeypatch):
     fake_chunks = [
         {

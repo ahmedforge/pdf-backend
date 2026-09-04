@@ -27,6 +27,12 @@ def ask_document_rag(
         if chunk["similarity"] >= min_similarity
     ]
 
+    # Fallback for short/small documents:
+    # if nothing clears the threshold, still give the LLM
+    # the single best retrieved chunk.
+    if not relevant_chunks and chunks:
+        relevant_chunks = [chunks[0]]
+
     if not relevant_chunks:
         return {
             "answer": "I could not find the answer in the document.",
@@ -104,7 +110,7 @@ def stream_document_rag(
     document_id: int,
     question: str,
     top_k: int = 5,
-    min_similarity: float = 0.28,
+    min_similarity: float = 0.30,
 ) -> Iterator[str]:
     total_start = perf_counter()
 
@@ -124,22 +130,20 @@ def stream_document_rag(
         if chunk["similarity"] >= min_similarity
     ]
 
+    if not relevant_chunks and chunks:
+        relevant_chunks = [chunks[0]]
+
     if not relevant_chunks:
         total_time = perf_counter() - total_start
 
-        print(
-            f"[RAG TIMING] retrieval={retrieval_time:.2f}s "
-            f"generation=0.00s "
-            f"total={total_time:.2f}s"
-        )
-
-        yield "I could not find the answer in the document."
-        return
-
-    context = "\n\n".join(
-        f"[Chunk {chunk['chunk_index']}]\n{chunk['chunk_text']}"
-        for chunk in relevant_chunks
+    print(
+        f"[RAG TIMING] retrieval={retrieval_time:.2f}s "
+        f"generation=0.00s "
+        f"total={total_time:.2f}s"
     )
+
+    yield "I could not find the answer in the document."
+    return
 
     prompt = f"""
 You are answering a question using only the document context below.
