@@ -42,55 +42,62 @@ class GroqProvider(LLMProvider):
 
     def stream(self, prompt: str) -> Iterator[str]:
         with httpx.stream(
-            "POST",
-            self.API_URL,
-            headers=self._headers(),
-            json={
-                "model": settings.groq_model,
-                "messages": [
-                    {
-                        "role": "user",
-                        "content": prompt,
-                    }
-                ],
-                "stream": True,
-                "include_reasoning": False,
-            },
-            timeout=httpx.Timeout(
-                connect=10.0,
-                read=None,
-                write=30.0,
-                pool=10.0,
-            ),
-        ) as response:
+        "POST",
+        self.API_URL,
+        headers=self._headers(),
+        json={
+            "model": settings.groq_model,
+            "messages": [
+                {
+                    "role": "user",
+                    "content": prompt,
+                }
+            ],
+            "stream": True,
+            "include_reasoning": False,
+        },
+        timeout=httpx.Timeout(
+            connect=10.0,
+            read=None,
+            write=30.0,
+            pool=10.0,
+        ),
+    ) as response:
             response.raise_for_status()
 
-            for line in response.iter_lines():
-                if not line:
-                    continue
+        for line in response.iter_lines():
+            print(f"[GROQ STREAM RAW] {line!r}")
+            
+            
+            if not line:
+                continue
 
-                if not line.startswith("data: "):
-                    continue
+            line = line.strip()
 
-                payload = line.removeprefix("data: ").strip()
+            if not line.startswith("data:"):
+                continue
 
-                if payload == "[DONE]":
-                    break
+            payload = line[len("data:"):].strip()
 
-                try:
-                    data = httpx.Response(
-                        200,
-                        content=payload,
-                    ).json()
-                except ValueError:
-                    continue
+            if payload == "[DONE]":
+                break
 
-                choices = data.get("choices", [])
+            try:
+                data = httpx.Response(
+                    200,
+                    content=payload,
+                ).json()
+            except ValueError:
+                continue
 
-                if not choices:
-                    continue
+            choices = data.get("choices", [])
 
-                content = choices[0].get("delta", {}).get("content")
+            if not choices:
+                continue
 
-                if content:
-                    yield content
+            delta = choices[0].get("delta", {})
+
+            content = delta.get("content")
+
+            if content:
+                yield content
