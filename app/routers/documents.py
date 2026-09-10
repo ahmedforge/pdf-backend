@@ -74,6 +74,7 @@ def upload_file(
             detail="File content is not a valid PDF"
         )
 
+    os.makedirs("uploads", exist_ok=True)
     file_path = os.path.join("uploads", filename)
 
     if os.path.exists(file_path):
@@ -113,21 +114,53 @@ def upload_file(
     uploaded_at = datetime.now(timezone.utc)
 
     
+    try:
+        _, text = extract_text_from_pdf(file_path)
+        text = clean_extracted_text(text)
+
+        if not text.strip():
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    "No extractable text was found. "
+                    "The PDF may be scanned or image-based."
+                ),
+            )
+
+        chunks = chunk_text(text)
+
+        if not chunks:
+            raise HTTPException(
+                status_code=422,
+                detail="The PDF did not produce any searchable chunks.",
+            )
+
+    except HTTPException:
+        if os.path.exists(file_path):
+            os.remove(file_path)
+        raise
+
+    except Exception as exc:
+        if os.path.exists(file_path):
+            os.remove(file_path)
+
+        logger.exception("PDF processing failed")
+
+        raise HTTPException(
+            status_code=500,
+            detail="PDF processing failed.",
+        ) from exc
+
     document = insert_document(
-    filename,
-    size_bytes,
-    uploaded_at,
-    current_user.id
+        filename,
+        size_bytes,
+        uploaded_at,
+        current_user.id,
     )
-    reader, text = extract_text_from_pdf(file_path)
-
-    text = clean_extracted_text(text)
-
-    chunks = chunk_text(text)
 
     save_document_chunks(
-    document.id,
-    chunks
+        document.id,
+        chunks,
     )
 
     logger.info(
