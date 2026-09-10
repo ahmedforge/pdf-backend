@@ -518,11 +518,6 @@ def ask_document_stream(
             status_code=429,
             detail="Too many RAG requests. Please try again later.",
     )
-    if not check_rate_limit(current_user.id):
-        raise HTTPException(
-            status_code=429,
-            detail="Too many RAG requests. Please try again later.",
-    )
 
     min_similarity = (
         request.min_similarity
