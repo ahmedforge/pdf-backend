@@ -18,7 +18,7 @@ class StorageSettings(BaseSettings):
     supabase_url: str | None = None
     supabase_service_role_key: SecretStr | None = None
     supabase_storage_bucket: str = 'pdfs'
-    model_config = SettingsConfigDict(env_file='.env', extra='ignore')
+    model_config = SettingsConfigDict(env_file='.env', extra='ignore', hide_input_in_errors=True)
 
     @model_validator(mode='after')
     def require_supabase_credentials(self):
