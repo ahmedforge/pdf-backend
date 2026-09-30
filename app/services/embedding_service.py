@@ -1,18 +1,24 @@
-from sentence_transformers import SentenceTransformer
+from threading import Lock
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from sentence_transformers import SentenceTransformer
 
 from app.config import settings
 
 
 _model = None
+_model_lock = Lock()
 
 
-def get_embedding_model() -> SentenceTransformer:
+def get_embedding_model() -> "SentenceTransformer":
     global _model
 
-    if _model is None:
-        _model = SentenceTransformer(
-            settings.embedding_model
-        )
+    with _model_lock:
+        if _model is None:
+            from sentence_transformers import SentenceTransformer
+
+            _model = SentenceTransformer(settings.embedding_model, device="cpu")
 
     return _model
 
