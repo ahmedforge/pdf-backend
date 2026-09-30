@@ -9,6 +9,7 @@ from app.config import settings
 
 _model = None
 _model_lock = Lock()
+_inference_lock = Lock()
 
 
 def get_embedding_model() -> "SentenceTransformer":
@@ -24,18 +25,12 @@ def get_embedding_model() -> "SentenceTransformer":
 
 
 def generate_embedding(text: str) -> list[float]:
-    model = get_embedding_model()
-
-    embedding = model.encode(text)
-
-    return embedding.tolist()
+    return generate_embeddings([text])[0]
 
 
-def generate_embeddings(
-    texts: list[str]
-) -> list[list[float]]:
-    model = get_embedding_model()
-
-    embeddings = model.encode(texts)
-
-    return embeddings.tolist()
+def generate_embeddings(texts: list[str]) -> list[list[float]]:
+    # Limit simultaneous inference and activation memory on small CPU instances.
+    with _inference_lock:
+        model = get_embedding_model()
+        embeddings = model.encode(texts, batch_size=1, show_progress_bar=False)
+        return embeddings.tolist()
