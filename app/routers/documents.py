@@ -1,4 +1,5 @@
 import os
+from tempfile import mkstemp
 from datetime import datetime, timezone
 from app.config import settings
 from app.services.rate_limit_service import check_rate_limit
@@ -27,9 +28,9 @@ from app.repositories.document_repository import (
 
 from app.security import get_current_user
 
-from app.services.file_service import (
-    validate_filename,
-    get_existing_file
+from app.services.file_service import validate_filename
+from app.services.storage_service import (
+    storage_settings, persist_pdf, open_pdf, delete_pdf,
 )
 
 from app.services.pdf_service import (
@@ -74,74 +75,71 @@ def upload_file(
             detail="File content is not a valid PDF"
         )
 
-    file_path = os.path.join("uploads", filename)
+    remote = storage_settings.file_storage_backend == "supabase"
+    if remote:
+        fd, file_path = mkstemp(prefix="pdf-upload-", suffix=".pdf")
+        os.close(fd)
+    else:
+        os.makedirs("uploads", exist_ok=True)
+        file_path = os.path.join("uploads", filename)
 
-    if os.path.exists(file_path):
-        raise HTTPException(
-            status_code=409,
-            detail="A file with this name already exists"
-        )
-
+    created = remote
+    stored = False
+    complete = False
+    document = None
     total_size = 0
-    chunk_size = 1024 * 1024
-
     try:
-        with open(file_path, "wb") as buffer:
-            while True:
-                chunk = file.file.read(chunk_size)
-
-                if not chunk:
-                    break
-
+        # Exclusive creation in local mode prevents concurrent overwrites.
+        with open(file_path, "wb" if remote else "xb") as buffer:
+            created = True
+            while chunk := file.file.read(1024 * 1024):
                 total_size += len(chunk)
-
                 if total_size > MAX_FILE_SIZE:
-                    raise HTTPException(
-                        status_code=413,
-                        detail="File is too large. Maximum size is 10 MB"
-                    )
-
+                    raise HTTPException(413, "File is too large. Maximum size is 10 MB")
                 buffer.write(chunk)
 
+        _, text = extract_text_from_pdf(file_path)
+        text = clean_extracted_text(text)
+        if not text.strip():
+            raise HTTPException(422, "No extractable text was found. The PDF may be scanned or image-based.")
+        chunks = chunk_text(text)
+        if not chunks:
+            raise HTTPException(422, "The PDF did not produce any searchable chunks.")
+
+        persist_pdf(filename, file_path)
+        stored = remote
+        document = insert_document(
+            filename, total_size, datetime.now(timezone.utc), current_user.id,
+        )
+        save_document_chunks(document.id, chunks)
+        complete = True
+        logger.info("User %s uploaded %s", current_user.id, filename)
+        return {
+            "message": "File uploaded successfully",
+            "filename": filename,
+            "document_id": document.id,
+            "chunks_created": len(chunks),
+        }
+    except FileExistsError as exc:
+        raise HTTPException(409, "A file with this name already exists") from exc
     except HTTPException:
-        if os.path.exists(file_path):
-            os.remove(file_path)
-
         raise
-
-    size_bytes = os.path.getsize(file_path)
-    uploaded_at = datetime.now(timezone.utc)
-
-    
-    document = insert_document(
-    filename,
-    size_bytes,
-    uploaded_at,
-    current_user.id
-    )
-    reader, text = extract_text_from_pdf(file_path)
-
-    text = clean_extracted_text(text)
-
-    chunks = chunk_text(text)
-
-    save_document_chunks(
-    document.id,
-    chunks
-    )
-
-    logger.info(
-    "User %s uploaded %s",
-    current_user.id,
-    filename
-    )
-
-    return {
-    "message": "File uploaded successfully",
-    "filename": filename,
-    "document_id": document.id,
-    "chunks_created": len(chunks)
-    }
+    except Exception as exc:
+        logger.warning("PDF upload failed (%s)", type(exc).__name__)
+        raise HTTPException(500, "PDF upload processing failed.") from exc
+    finally:
+        if not complete and document is not None:
+            try:
+                delete_document(document.id, current_user.id)
+            except Exception:
+                logger.warning("Failed upload document cleanup requires attention")
+        if not complete and stored:
+            try:
+                delete_pdf(filename)
+            except Exception:
+                logger.warning("Failed upload storage cleanup requires attention")
+        if created and (remote or not complete):
+            os.remove(file_path)
 
 
 @router.get("/files")
@@ -172,9 +170,7 @@ def delete_file(
         )
 
     filename = document.filename
-    filename, file_path = get_existing_file(filename)
-
-    os.remove(file_path)
+    delete_pdf(filename)
 
     delete_document(
         document_id,
@@ -193,160 +189,68 @@ def delete_file(
     }
 
 
-@router.get("/download/{document_id}")
-def download_file(
-    document_id: int,
-    current_user=Depends(get_current_user)
-):
-    document = get_document_by_id(
-        document_id,
-        current_user.id
-    )
-
+def readable_document(document_id: int, current_user=Depends(get_current_user)):
+    document = get_document_by_id(document_id, current_user.id)
     if not document:
-        raise HTTPException(
-            status_code=404,
-            detail="Document not found"
-        )
+        raise HTTPException(404, "Document not found")
+    # Request scope keeps the temporary path alive through FileResponse, then
+    # closes the context and removes it even if the response fails.
+    with open_pdf(document.filename) as file_path:
+        yield document, file_path
 
-    filename = document.filename
-    filename, file_path = get_existing_file(filename)
 
-    return FileResponse(
-        path=file_path,
-        filename=filename,
-        media_type="application/pdf"
-    )
+@router.get("/download/{document_id}")
+def download_file(stored=Depends(readable_document, scope="request")):
+    document, file_path = stored
+    return FileResponse(path=file_path, filename=document.filename, media_type="application/pdf")
 
 
 @router.get("/extract/{document_id}")
-def extract_pdf_text(
-    document_id: int,
-    current_user=Depends(get_current_user)
-):
-    document = get_document_by_id(
-        document_id,
-        current_user.id
-    )
-
-    if not document:
-        raise HTTPException(
-            status_code=404,
-            detail="Document not found"
-        )
-
-    filename = document.filename
-    filename, file_path = get_existing_file(filename)
-
+def extract_pdf_text(stored=Depends(readable_document, scope="request")):
+    document, file_path = stored
     try:
         reader, text = extract_text_from_pdf(file_path)
-
         return {
-            "document_id": document_id,
-            "filename": filename,
-            "pages": len(reader.pages),
-            "text": text
+            "document_id": document.id, "filename": document.filename,
+            "pages": len(reader.pages), "text": text,
         }
-
-    except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"PDF extraction failed: {str(e)}"
-        )
+    except Exception as exc:
+        raise HTTPException(500, "PDF extraction failed.") from exc
 
 
 @router.get("/info/{document_id}")
-def get_pdf_info(
-    document_id: int,
-    current_user=Depends(get_current_user)
-):
-    document = get_document_by_id(
-        document_id,
-        current_user.id
-    )
-
-    if not document:
-        raise HTTPException(
-            status_code=404,
-            detail="Document not found"
-        )
-
-    filename = document.filename
-    filename, file_path = get_existing_file(filename)
-
+def get_pdf_info(stored=Depends(readable_document, scope="request")):
+    document, file_path = stored
     try:
-        file_size_bytes = os.path.getsize(file_path)
-        file_size_kb = round(file_size_bytes / 1024, 2)
-
+        size = os.path.getsize(file_path)
         reader, text = extract_text_from_pdf(file_path)
         metadata = reader.metadata
-
         return {
-            "document_id": document_id,
-            "filename": filename,
-            "file_size_bytes": file_size_bytes,
-            "file_size_kb": file_size_kb,
-            "pages": len(reader.pages),
-            "total_characters": len(text),
-            "preview": text[:500],
-            "title": metadata.title if metadata else None,
+            "document_id": document.id, "filename": document.filename,
+            "file_size_bytes": size, "file_size_kb": round(size / 1024, 2),
+            "pages": len(reader.pages), "total_characters": len(text),
+            "preview": text[:500], "title": metadata.title if metadata else None,
             "author": metadata.author if metadata else None,
-            "is_encrypted": reader.is_encrypted
+            "is_encrypted": reader.is_encrypted,
         }
-
-    except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"PDF info extraction failed: {str(e)}"
-        )
+    except Exception as exc:
+        raise HTTPException(500, "PDF info extraction failed.") from exc
 
 
 @router.get("/search/{document_id}")
-def search_pdf_text(
-    document_id: int,
-    query: str,
-    current_user=Depends(get_current_user)
-):
-    document = get_document_by_id(
-        document_id,
-        current_user.id
-    )
-
-    if not document:
-        raise HTTPException(
-            status_code=404,
-            detail="Document not found"
-        )
-
-    filename = document.filename
-    filename, file_path = get_existing_file(filename)
-
+def search_pdf_text(query: str, stored=Depends(readable_document, scope="request")):
+    document, file_path = stored
     if not query.strip():
-        raise HTTPException(
-            status_code=400,
-            detail="Search query cannot be empty"
-        )
-
+        raise HTTPException(400, "Search query cannot be empty")
     try:
         _, text = extract_text_from_pdf(file_path)
-
-        lower_text = text.lower()
-        lower_query = query.lower()
-
         return {
-            "document_id": document_id,
-            "filename": filename,
-            "query": query,
-            "found": lower_query in lower_text,
-            "matches_count": lower_text.count(lower_query)
+            "document_id": document.id, "filename": document.filename,
+            "query": query, "found": query.lower() in text.lower(),
+            "matches_count": text.lower().count(query.lower()),
         }
-
-    except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"PDF search failed: {str(e)}"
-        )
-
+    except Exception as exc:
+        raise HTTPException(500, "PDF search failed.") from exc
 
 
 @router.get("/files/{document_id}/chunks")
@@ -485,11 +389,6 @@ def ask_document_stream(
             status_code=429,
             detail="Too many RAG requests. Please try again later.",
     )
-    if not check_rate_limit(current_user.id):
-        raise HTTPException(
-            status_code=429,
-            detail="Too many RAG requests. Please try again later.",
-    )
 
     min_similarity = (
         request.min_similarity
@@ -497,12 +396,28 @@ def ask_document_stream(
         else settings.rag_min_similarity
     )
 
-    return StreamingResponse(
-        stream_document_rag(
-            document_id=document_id,
-            question=request.question,
-            top_k=request.top_k,
-            min_similarity=min_similarity,
-        ),
-        media_type="text/plain",
+    stream = stream_document_rag(
+        document_id=document_id,
+        question=request.question,
+        top_k=request.top_k,
+        min_similarity=min_similarity,
     )
+    # Read the first token before sending HTTP headers so upstream failures
+    # can return a real 503 instead of a broken 200 response.
+    try:
+        first_chunk = next(stream, "")
+    except RuntimeError as exc:
+        stream.close()
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+    def response_body():
+        try:
+            yield first_chunk
+            yield from stream
+        except RuntimeError:
+            logger.warning("RAG generation interrupted")
+            yield "\n\n[Generation interrupted. Please retry your question.]"
+        finally:
+            stream.close()
+
+    return StreamingResponse(response_body(), media_type="text/plain")

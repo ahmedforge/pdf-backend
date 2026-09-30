@@ -6,15 +6,12 @@ from app.config import settings
 from collections.abc import Iterator
 from time import perf_counter
 llm = get_llm_provider()
-def ask_document_rag(
+def _retrieve_context(
     document_id: int,
     question: str,
-    top_k: int = 5,
-    min_similarity: float | None = None,
-) -> dict:
-    if min_similarity is None:
-        min_similarity = settings.rag_min_similarity
-
+    top_k: int,
+    min_similarity: float,
+) -> tuple[list[dict], str]:
     chunks = semantic_search_chunks(
         document_id=document_id,
         query=question,
@@ -26,9 +23,6 @@ def ask_document_rag(
         for chunk in chunks
         if chunk["similarity"] >= min_similarity
     ]
-    if not relevant_chunks and chunks:
-        relevant_chunks = [chunks[0]]
-
     # Fallback for short/small documents:
     # if nothing clears the threshold, still give the LLM
     # the single best retrieved chunk.
@@ -36,10 +30,7 @@ def ask_document_rag(
         relevant_chunks = [chunks[0]]
 
     if not relevant_chunks:
-        return {
-            "answer": "I could not find the answer in the document.",
-            "sources": [],
-        }
+        return [], ""
 
     context = "\n\n".join(
         f"[Chunk {chunk['chunk_index']}]\n{chunk['chunk_text']}"
@@ -69,6 +60,27 @@ Question:
 
 Answer:
 """
+
+    return relevant_chunks, prompt
+
+
+def ask_document_rag(
+    document_id: int,
+    question: str,
+    top_k: int = 5,
+    min_similarity: float | None = None,
+) -> dict:
+    if min_similarity is None:
+        min_similarity = settings.rag_min_similarity
+
+    relevant_chunks, prompt = _retrieve_context(
+        document_id, question, top_k, min_similarity
+    )
+    if not relevant_chunks:
+        return {
+            "answer": "I could not find the answer in the document.",
+            "sources": [],
+        }
 
     answer = llm.generate(prompt)
 
@@ -112,69 +124,21 @@ def stream_document_rag(
     document_id: int,
     question: str,
     top_k: int = 5,
-    min_similarity: float = 0.30,
+    min_similarity: float | None = None,
 ) -> Iterator[str]:
     total_start = perf_counter()
 
     retrieval_start = perf_counter()
 
-    chunks = semantic_search_chunks(
-        document_id=document_id,
-        query=question,
-        limit=top_k,
+    if min_similarity is None:
+        min_similarity = settings.rag_min_similarity
+    relevant_chunks, prompt = _retrieve_context(
+        document_id, question, top_k, min_similarity
     )
-
     retrieval_time = perf_counter() - retrieval_start
-
-    relevant_chunks = [
-        chunk
-        for chunk in chunks
-        if chunk["similarity"] >= min_similarity
-    ]
-
-    if not relevant_chunks and chunks:
-        relevant_chunks = [chunks[0]]
-
     if not relevant_chunks:
-        total_time = perf_counter() - total_start
-
-        print(
-            f"[RAG TIMING] retrieval={retrieval_time:.2f}s "
-            f"generation=0.00s "
-            f"total={total_time:.2f}s"
-        )
-
         yield "I could not find the answer in the document."
         return
-
-    context = "\n\n".join(
-        f"[Chunk {chunk['chunk_index']}]\n{chunk['chunk_text']}"
-        for chunk in relevant_chunks
-    )
-
-    prompt = f"""
-You are answering a question using only the document context below.
-
-Rules:
-- Use only the provided context.
-- Do not use outside knowledge.
-- Do not guess facts that are not supported by the context.
-- Infer reasonable conclusions when the context strongly supports them.
-- If multiple retrieved chunks repeatedly focus on the same character or subject,
-  you may conclude that character or subject is central to the document.
-- If the context truly does not contain enough information, say:
-  "I could not find the answer in the document."
-- Cite supporting chunks using this format: [Chunk 12]
-- Only cite chunk numbers that appear in the provided context.
-
-Context:
-{context}
-
-Question:
-{question}
-
-Answer:
-"""
 
     generation_start = perf_counter()
 

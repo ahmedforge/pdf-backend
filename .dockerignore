@@ -5,3 +5,8 @@ __pycache__/
 .git/
 .env
 documents.db
+
+# Runtime data and local frontend are not part of the backend image.
+uploads/
+pdf-rag-frontend/
+pdf-backend-clean.zip
