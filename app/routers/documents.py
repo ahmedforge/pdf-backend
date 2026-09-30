@@ -525,12 +525,28 @@ def ask_document_stream(
         else settings.rag_min_similarity
     )
 
-    return StreamingResponse(
-        stream_document_rag(
-            document_id=document_id,
-            question=request.question,
-            top_k=request.top_k,
-            min_similarity=min_similarity,
-        ),
-        media_type="text/plain",
+    stream = stream_document_rag(
+        document_id=document_id,
+        question=request.question,
+        top_k=request.top_k,
+        min_similarity=min_similarity,
     )
+    # Read the first token before sending HTTP headers so upstream failures
+    # can return a real 503 instead of a broken 200 response.
+    try:
+        first_chunk = next(stream, "")
+    except RuntimeError as exc:
+        stream.close()
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+    def response_body():
+        try:
+            yield first_chunk
+            yield from stream
+        except RuntimeError:
+            logger.warning("RAG generation interrupted")
+            yield "\n\n[Generation interrupted. Please retry your question.]"
+        finally:
+            stream.close()
+
+    return StreamingResponse(response_body(), media_type="text/plain")
