@@ -7,13 +7,12 @@ from app.routers.auth import router as auth_router
 import app.logging_config
 from app.routers import health
 from fastapi.middleware.cors import CORSMiddleware
+from app.config import settings
 
 app = FastAPI(title="PDF Backend")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-    ],
+    allow_origins=settings.cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
