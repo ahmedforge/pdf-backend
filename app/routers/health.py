@@ -30,27 +30,16 @@ def health_ready():
 
     # LLM check
     try:
-        if settings.llm_provider == "ollama":
-            response = httpx.get(
-                "http://127.0.0.1:11434/api/tags",
-                timeout=5.0,
-            )
-            response.raise_for_status()
-            checks["llm"] = True
+        if not settings.groq_api_key:
+            raise RuntimeError("GROQ_API_KEY is not configured")
 
-        elif settings.llm_provider == "groq":
-            if not settings.groq_api_key:
-                raise RuntimeError("GROQ_API_KEY is not configured")
-
-            response = httpx.get(
-                "https://api.groq.com/openai/v1/models",
-                headers={
-                    "Authorization": f"Bearer {settings.groq_api_key}",
-                },
-                timeout=10.0,
-            )
-            response.raise_for_status()
-            checks["llm"] = True
+        response = httpx.get(
+            "https://api.groq.com/openai/v1/models",
+            headers={"Authorization": f"Bearer {settings.groq_api_key}"},
+            timeout=10.0,
+        )
+        response.raise_for_status()
+        checks["llm"] = True
 
     except Exception:
         pass
