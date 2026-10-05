@@ -10,3 +10,8 @@ documents.db
 uploads/
 pdf-rag-frontend/
 pdf-backend-clean.zip
+
+# Exclude credentials in every directory, including app/.env.
+**/.env
+**/.env.*
+!**/.env.example
