@@ -14,13 +14,11 @@ from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
 from fastapi.responses import FileResponse
 from app.services.chunk_service import chunk_text
 from app.repositories.chunk_repository import (
-    save_document_chunks,
     get_document_chunks,
     semantic_search_chunks,
 )
 
 from app.repositories.document_repository import (
-    insert_document,
     get_all_documents,
     get_document_by_id,
     delete_document
@@ -29,6 +27,7 @@ from app.repositories.document_repository import (
 from app.security import get_current_user
 
 from app.services.file_service import validate_filename
+from app.services.ingestion_service import ingest_document
 from app.services.storage_service import (
     storage_settings, persist_pdf, open_pdf, delete_pdf,
 )
@@ -84,9 +83,7 @@ def upload_file(
         file_path = os.path.join("uploads", filename)
 
     created = remote
-    stored = False
     complete = False
-    document = None
     total_size = 0
     try:
         # Exclusive creation in local mode prevents concurrent overwrites.
@@ -106,12 +103,10 @@ def upload_file(
         if not chunks:
             raise HTTPException(422, "The PDF did not produce any searchable chunks.")
 
-        persist_pdf(filename, file_path)
-        stored = remote
-        document = insert_document(
+        document = ingest_document(
             filename, total_size, datetime.now(timezone.utc), current_user.id,
+            chunks, file_path,
         )
-        save_document_chunks(document.id, chunks)
         complete = True
         logger.info("User %s uploaded %s", current_user.id, filename)
         return {
@@ -128,16 +123,6 @@ def upload_file(
         logger.warning("PDF upload failed (%s)", type(exc).__name__)
         raise HTTPException(500, "PDF upload processing failed.") from exc
     finally:
-        if not complete and document is not None:
-            try:
-                delete_document(document.id, current_user.id)
-            except Exception:
-                logger.warning("Failed upload document cleanup requires attention")
-        if not complete and stored:
-            try:
-                delete_pdf(filename)
-            except Exception:
-                logger.warning("Failed upload storage cleanup requires attention")
         if created and (remote or not complete):
             os.remove(file_path)
 
@@ -170,7 +155,7 @@ def delete_file(
         )
 
     filename = document.filename
-    delete_pdf(filename)
+    delete_pdf(document.storage_key or filename)
 
     delete_document(
         document_id,
@@ -195,7 +180,7 @@ def readable_document(document_id: int, current_user=Depends(get_current_user)):
         raise HTTPException(404, "Document not found")
     # Request scope keeps the temporary path alive through FileResponse, then
     # closes the context and removes it even if the response fails.
-    with open_pdf(document.filename) as file_path:
+    with open_pdf(document.storage_key or document.filename) as file_path:
         yield document, file_path
 
 

@@ -57,11 +57,11 @@ def api(monkeypatch, tmp_path):
     def stage(**kwargs):
         fd, name = real_mkstemp(**kwargs); temporary.append(name); return fd, name
     monkeypatch.setattr(routes, 'mkstemp', stage)
-    def insert(filename, size, uploaded_at, owner):
-        document = SimpleNamespace(id=len(documents)+1, filename=filename, owner_id=owner)
+    def insert(filename, size, uploaded_at, owner, chunks, file_path):
+        storage.persist_pdf(filename, file_path)
+        document = SimpleNamespace(id=len(documents)+1, filename=filename, owner_id=owner, storage_key=None)
         documents[document.id] = document; return document
-    monkeypatch.setattr(routes, 'insert_document', insert)
-    monkeypatch.setattr(routes, 'save_document_chunks', lambda *args: None)
+    monkeypatch.setattr(routes, 'ingest_document', insert)
     monkeypatch.setattr(routes, 'get_document_by_id', lambda id, owner: documents.get(id) if id in documents and documents[id].owner_id == owner else None)
     monkeypatch.setattr(routes, 'delete_document', lambda id, owner: documents.pop(id, None))
     app.dependency_overrides[get_current_user] = lambda: SimpleNamespace(id=1)
@@ -109,7 +109,7 @@ def test_storage_failure_does_not_create_document(api):
 def test_embedding_failure_removes_new_pdf_and_record(api, monkeypatch):
     def fail(*args):
         raise RuntimeError('Embedding failed')
-    monkeypatch.setattr(routes, 'save_document_chunks', fail)
+    monkeypatch.setattr(routes, 'ingest_document', fail)
     assert upload(api).status_code == 500
     assert api.documents == {} and api.objects == {}
 

@@ -1,5 +1,6 @@
 from logging.config import fileConfig
 from app.models.chunk import Chunk
+from app.models.pending_upload import PendingUpload
 
 from sqlalchemy import engine_from_config
 from sqlalchemy import pool
