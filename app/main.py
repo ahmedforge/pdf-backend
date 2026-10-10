@@ -1,3 +1,6 @@
+import asyncio
+from contextlib import asynccontextmanager, suppress
+from app.services.upload_recovery import recover_uploads
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from app.routers.documents import router as documents_router
 from fastapi.responses import FileResponse
@@ -9,7 +12,18 @@ from app.routers import health
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 
-app = FastAPI(title="PDF Backend")
+@asynccontextmanager
+async def lifespan(app):
+    task = asyncio.create_task(recover_uploads())
+    try:
+        yield
+    finally:
+        task.cancel()
+        with suppress(asyncio.CancelledError):
+            await task
+
+
+app = FastAPI(title="PDF Backend", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,

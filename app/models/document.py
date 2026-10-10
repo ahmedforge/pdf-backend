@@ -33,4 +33,5 @@ class Document(Base):
         default=lambda: datetime.now(timezone.utc),
         nullable=False
     )
-    
+
+    storage_key: Mapped[str | None] = mapped_column(String(255), nullable=True)
