@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from "react"
 import { apiRequest } from "./api"
+import { ThemeToggle } from "@/components/theme-toggle"
+import { WorkspaceShell } from "@/components/workspace-shell"
 
 async function fetchFiles(token) {
   const response = await apiRequest("/files", {
@@ -15,7 +17,6 @@ function App() {
   const [token, setToken] = useState(localStorage.getItem("token") || "")
 
   const [files, setFiles] = useState([])
-  const [file, setFile] = useState(null)
   const [documentId, setDocumentId] = useState(null)
 
   const [question, setQuestion] = useState("")
@@ -91,8 +92,8 @@ function App() {
     }
   }
 
-  async function handleUpload() {
-    if (!file) {
+  async function handleUpload(selectedFile) {
+    if (!selectedFile) {
       setMessage("Choose a PDF first")
       return
     }
@@ -102,7 +103,7 @@ function App() {
 
     try {
       const formData = new FormData()
-      formData.append("file", file)
+      formData.append("file", selectedFile)
 
       const response = await apiRequest("/upload", {
         method: "POST",
@@ -196,6 +197,7 @@ function App() {
   if (!token) {
     return (
       <div style={{ maxWidth: "420px", margin: "80px auto", padding: "24px" }}>
+        <div className="flex justify-end"><ThemeToggle /></div>
         <h1>PDF RAG</h1>
         <h2>{authMode === "register" ? "Create account" : "Login"}</h2>
 
@@ -244,101 +246,12 @@ function App() {
   }
 
   return (
-    <div style={{ maxWidth: "800px", margin: "40px auto", padding: "24px" }}>
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-        }}
-      >
-        <h1>PDF RAG</h1>
-        <button onClick={handleLogout}>Logout</button>
-      </div>
-
-      <hr />
-
-      <h2>1. Select Existing PDF</h2>
-
-      {files.length > 0 ? (
-        <select
-          value={documentId || ""}
-          onChange={(event) => setDocumentId(Number(event.target.value))}
-          style={{ width: "100%", padding: "10px" }}
-        >
-          {files.map((item) => (
-            <option key={item.id} value={item.id}>
-              {item.filename} (ID: {item.id})
-            </option>
-          ))}
-        </select>
-      ) : (
-        <p>No existing PDFs found.</p>
-      )}
-
-      <hr />
-
-      <h2>2. Upload New PDF</h2>
-
-      <input
-        type="file"
-        accept="application/pdf"
-        onChange={(event) => setFile(event.target.files[0])}
-      />
-
-      <br />
-      <br />
-
-      <button onClick={handleUpload} disabled={loading}>
-        Upload PDF
-      </button>
-
-      {documentId && (
-        <p>
-          Selected Document ID: <strong>{documentId}</strong>
-        </p>
-      )}
-
-      <hr />
-
-      <h2>3. Ask your PDF</h2>
-
-      <form onSubmit={handleAsk}>
-        <textarea
-          value={question}
-          onChange={(event) => setQuestion(event.target.value)}
-          placeholder="Ask a question about the PDF..."
-          rows="4"
-          style={{
-            width: "100%",
-            padding: "12px",
-          }}
-        />
-
-        <br />
-        <br />
-
-        <button type="submit" disabled={loading || !documentId}>
-          Ask
-        </button>
-      </form>
-
-      <h2>Answer</h2>
-
-      <div
-        style={{
-          minHeight: "150px",
-          whiteSpace: "pre-wrap",
-          border: "1px solid #555",
-          padding: "16px",
-          borderRadius: "8px",
-        }}
-      >
-        {answer || "The streamed answer will appear here."}
-      </div>
-
-      <p>{message}</p>
-    </div>
+    <WorkspaceShell
+      token={token} files={files} documentId={documentId}
+      onSelectDocument={setDocumentId} onUpload={handleUpload}
+      onLogout={handleLogout} question={question} onQuestionChange={setQuestion}
+      onAsk={handleAsk} answer={answer} message={message} loading={loading}
+    />
   )
 }
 
