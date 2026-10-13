@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react"
 import { apiRequest } from "./api"
 import { ThemeToggle } from "@/components/theme-toggle"
+import { useDocumentChat } from "@/hooks/use-document-chat"
 import { WorkspaceShell } from "@/components/workspace-shell"
 
 async function fetchFiles(token) {
@@ -19,8 +20,9 @@ function App() {
   const [files, setFiles] = useState([])
   const [documentId, setDocumentId] = useState(null)
 
-  const [question, setQuestion] = useState("")
-  const [answer, setAnswer] = useState("")
+  const chat = useDocumentChat(token)
+  const question = chat.drafts[documentId] || ""
+  const resetChat = chat.reset
   const [message, setMessage] = useState("")
   const [loading, setLoading] = useState(false)
 
@@ -31,6 +33,7 @@ function App() {
 
   const handleFileError = useCallback(error => {
     if (error.status === 401) {
+      resetChat()
       localStorage.removeItem("token")
       setToken("")
       setFiles([])
@@ -39,7 +42,7 @@ function App() {
     } else {
       setMessage(`Could not load files: ${error.message}`)
     }
-  }, [])
+  }, [resetChat])
 
   const loadFiles = useCallback(() => {
     if (!token) return Promise.resolve()
@@ -81,6 +84,7 @@ function App() {
 
       const data = await response.json()
 
+      chat.reset()
       localStorage.setItem("token", data.access_token)
       setToken(data.access_token)
       setPassword("")
@@ -126,63 +130,15 @@ function App() {
     }
   }
 
-  async function handleAsk(event) {
+  function handleAsk(event) {
     event.preventDefault()
+    if (!loading) { setMessage(""); chat.send(documentId, question) }
+  }
 
-    if (!documentId) {
-      setMessage("Select or upload a PDF first")
-      return
-    }
-
-    if (!question.trim()) {
-      return
-    }
-
-    setAnswer("")
-    setLoading(true)
-    setMessage("Generating answer...")
-
-    try {
-      const response = await apiRequest(
-        `/files/${documentId}/ask/stream`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            question,
-            top_k: 3,
-          }),
-        }
-      )
-
-      if (!response.body) throw new Error("No answer stream was received")
-      const reader = response.body.getReader()
-      const decoder = new TextDecoder()
-      let received = ""
-
-      while (true) {
-        const { done, value } = await reader.read()
-
-        if (done) break
-
-        const chunk = decoder.decode(value, {
-          stream: true,
-        })
-
-        received += chunk
-        setAnswer(received)
-      }
-      received += decoder.decode()
-      setAnswer(received)
-      setMessage(received.includes("[Generation interrupted.") ? "Generation was interrupted. Please retry." : "Answer complete")
-    } catch (error) {
-      setMessage(`Question failed: ${error.message}`)
-    } finally {
-      setLoading(false)
-    }
+  function selectDocument(id) {
+    if (id !== documentId) chat.stop()
+    setDocumentId(id)
+    setMessage("")
   }
 
   function handleLogout() {
@@ -190,7 +146,7 @@ function App() {
     setToken("")
     setFiles([])
     setDocumentId(null)
-    setAnswer("")
+    chat.reset()
     setMessage("")
   }
 
@@ -248,9 +204,12 @@ function App() {
   return (
     <WorkspaceShell
       token={token} files={files} documentId={documentId}
-      onSelectDocument={setDocumentId} onUpload={handleUpload}
-      onLogout={handleLogout} question={question} onQuestionChange={setQuestion}
-      onAsk={handleAsk} answer={answer} message={message} loading={loading}
+      onSelectDocument={selectDocument} onUpload={handleUpload}
+      onLogout={handleLogout} question={question} onQuestionChange={text => chat.setDraft(documentId, text)}
+      onAsk={handleAsk} turns={chat.conversations[documentId] || []}
+      generating={Boolean(documentId) && chat.activeDocument === documentId} onStop={chat.stop}
+      onRetry={turn => chat.send(documentId, turn.question, turn.id)}
+      onClear={() => chat.clear(documentId)} storageWarning={chat.storageWarning} message={message} loading={loading}
     />
   )
 }

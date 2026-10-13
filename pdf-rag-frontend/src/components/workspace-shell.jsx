@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react"
-import { ArrowUp, FileText, LogOut, PanelLeftClose, PanelLeftOpen, Upload, MessageSquare, LoaderCircle } from "lucide-react"
+import { FileText, LogOut, PanelLeftClose, PanelLeftOpen, Upload, MessageSquare, LoaderCircle } from "lucide-react"
 import { apiRequest } from "@/api"
 import { Button } from "@/components/ui/button"
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { ChatPanel } from "@/components/chat-panel"
 import { ThemeToggle } from "@/components/theme-toggle"
 
 function subscribeMobile(callback) {
@@ -60,7 +61,7 @@ function PdfPreview({ documentId, token, filename }) {
 
 const suggestions = ["Summarize this document", "What are the key takeaways?", "Explain the main ideas simply"]
 
-export function WorkspaceShell({ token, files, documentId, onSelectDocument, onUpload, onLogout, question, onQuestionChange, onAsk, answer, message, loading }) {
+export function WorkspaceShell({ token, files, documentId, onSelectDocument, onUpload, onLogout, question, onQuestionChange, onAsk, turns, generating, onStop, onRetry, onClear, storageWarning, message, loading }) {
   const mobile = useSyncExternalStore(subscribeMobile, getMobileSnapshot, () => false)
   const [collapsed, setCollapsed] = useState(getMobileSnapshot)
   const [mobileTab, setMobileTab] = useState("chat")
@@ -85,11 +86,9 @@ export function WorkspaceShell({ token, files, documentId, onSelectDocument, onU
 
   const preview = <PdfPreview documentId={documentId} token={token} filename={selected?.filename} />
   const chat = (
-    <section className="flex h-full min-h-0 flex-col" aria-label="Document chat">
-      <div className="flex h-14 shrink-0 items-center gap-2 border-b px-5 text-sm"><MessageSquare className="size-4 text-muted-foreground" aria-hidden="true" />Ask your PDF</div>
-      <div className="flex-1 overflow-y-auto px-5 py-8">
-        <div className="mx-auto max-w-[720px]">
-          {answer ? <div className="fade-in whitespace-pre-wrap text-sm leading-7">{answer}</div> : (
+    <ChatPanel key={documentId || 'empty'} documentId={documentId} turns={turns} question={question}
+      onQuestionChange={onQuestionChange} onAsk={onAsk} onRetry={onRetry} onStop={onStop}
+      generating={generating} loading={loading} message={uploadError || message} onClear={onClear} storageWarning={storageWarning}>
             <div className="fade-in flex min-h-64 flex-col items-center justify-center gap-4 text-center">
               <div className="rounded-xl border bg-card p-3 shadow-xs"><MessageSquare className="size-5 text-primary" aria-hidden="true" /></div>
               <h2 className="m-0 text-xl font-medium">A little clarity, one question at a time.</h2>
@@ -100,25 +99,14 @@ export function WorkspaceShell({ token, files, documentId, onSelectDocument, onU
                   onDragLeave={() => setDragging(false)}
                   onDrop={event => { event.preventDefault(); setDragging(false); upload(event.dataTransfer.files[0]) }}>
                   <Upload className="mx-auto mb-3 size-5 text-primary" aria-hidden="true" />
-                  <Button variant="outline" disabled={loading} onClick={() => input.current?.click()}>Choose a PDF</Button>
+                  <Button variant="outline" disabled={loading || generating} onClick={() => input.current?.click()}>Choose a PDF</Button>
                   <p className="mt-3 text-xs text-muted-foreground">Or drop it here · PDF up to 10 MB</p>
                 </div>
               ) : (
                 <div className="flex flex-wrap justify-center gap-2">{suggestions.map(text => <Button key={text} variant="outline" className="h-auto whitespace-normal rounded-xl py-2" disabled={loading} onClick={() => onQuestionChange(text)}>{text}</Button>)}</div>
               )}
             </div>
-          )}
-        </div>
-      </div>
-      <div className="shrink-0 px-4 pb-4 pt-2">
-        <form onSubmit={onAsk} className="mx-auto flex max-w-[720px] items-end gap-2 rounded-xl border bg-card p-2 shadow-sm">
-          <label htmlFor="pdf-question" className="sr-only">Question about your PDF</label>
-          <textarea id="pdf-question" rows={2} className="max-h-36 min-h-12 flex-1 resize-none border-0 bg-transparent px-3 py-2 text-sm outline-none focus-visible:outline-none" placeholder="Ask your PDF…" value={question} onChange={event => onQuestionChange(event.target.value)} disabled={!documentId || loading} />
-          <Button type="submit" size="icon" className="rounded-lg" disabled={loading || !documentId || !question.trim()} aria-label="Send question"><ArrowUp className="size-4" aria-hidden="true" /></Button>
-        </form>
-        <p role="status" aria-live="polite" className="mx-auto mt-2 min-h-4 max-w-[720px] text-center text-xs text-muted-foreground">{uploadError || message || "Answers are based on the selected PDF."}</p>
-      </div>
-    </section>
+    </ChatPanel>
   )
 
   return (
@@ -132,7 +120,7 @@ export function WorkspaceShell({ token, files, documentId, onSelectDocument, onU
       </header>
       <div className="relative flex min-h-0 flex-1">
         {!collapsed && <aside id="document-sidebar" aria-label="Documents" className="absolute inset-y-0 left-0 z-20 flex w-64 shrink-0 flex-col border-r bg-card shadow-sm md:relative md:shadow-none">
-          <div className="p-4"><Button className="w-full rounded-xl" disabled={loading} onClick={() => input.current?.click()}><Upload />Upload PDF</Button></div>
+          <div className="p-4"><Button className="w-full rounded-xl" disabled={loading || generating} onClick={() => input.current?.click()}><Upload />Upload PDF</Button></div>
           <div className="px-4 pb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">Documents</div>
           <nav aria-label="Select a document" className="flex-1 space-y-1 overflow-y-auto px-2">{files.length ? files.map(file => (
             <Button key={file.id} variant="ghost" className={`h-auto w-full justify-start rounded-xl px-3 py-3 text-left ${file.id === documentId ? "bg-accent text-accent-foreground" : ""}`} aria-current={file.id === documentId ? "true" : undefined} disabled={loading} title={file.filename} onClick={() => { onSelectDocument(file.id); if (window.matchMedia("(max-width: 767px)").matches) setCollapsed(true) }}><FileText className="size-4 shrink-0" /><span className="truncate">{file.filename}</span></Button>
