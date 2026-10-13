@@ -9,6 +9,7 @@ from app.database import SessionLocal
 from app.models.document import Document
 from app.models.chunk import Chunk
 from app.models.pending_upload import PendingUpload
+from app.services.chunk_service import normalize_chunks
 from app.services.embedding_service import generate_embeddings
 from app.services.storage_service import storage_settings, persist_pdf, delete_pdf
 
@@ -33,7 +34,8 @@ def cleanup_pending_uploads(storage_key=None, *, retire_marker=True):
 
 def ingest_document(filename, size_bytes, uploaded_at, owner_id, chunks, file_path):
     # Expensive work precedes all database/storage writes.
-    embeddings = generate_embeddings(chunks)
+    records = normalize_chunks(chunks)
+    embeddings = generate_embeddings([record["chunk_text"] for record in records])
     if len(embeddings) != len(chunks):
         raise RuntimeError("Embedding count does not match document chunks")
     remote = storage_settings.file_storage_backend == "supabase"
@@ -56,8 +58,8 @@ def ingest_document(filename, size_bytes, uploaded_at, owner_id, chunks, file_pa
             db.add(document)
             db.flush()  # Detect duplicate filenames before uploading anything.
             db.add_all([Chunk(document_id=document.id, chunk_index=index,
-                              chunk_text=value, embedding=embedding)
-                        for index, (value, embedding) in enumerate(zip(chunks, embeddings))])
+                              chunk_text=value["chunk_text"], page_number=value["page_number"], embedding=embedding)
+                        for index, (value, embedding) in enumerate(zip(records, embeddings))])
             db.flush()
             persist_pdf(key, file_path)
             if remote:

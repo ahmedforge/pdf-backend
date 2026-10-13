@@ -73,3 +73,18 @@ def clean_extracted_text(text: str) -> str:
     cleaned_text = re.sub(r"\n{3,}", "\n\n", cleaned_text)
 
     return cleaned_text.strip()
+
+MIN_CHUNK_CHARACTERS = 20
+
+
+def extract_page_chunks(file_path: str) -> list[dict]:
+    """Physical PDF pages are 1-based; chunks never cross a page boundary."""
+    from app.services.chunk_service import chunk_text
+    reader = PdfReader(file_path)
+    chunks = []
+    for page_number, page in enumerate(reader.pages, start=1):
+        text = clean_extracted_text(page.extract_text() or "")
+        for value in chunk_text(text):
+            if len(re.sub(r"\s", "", value)) >= MIN_CHUNK_CHARACTERS:
+                chunks.append({"chunk_text": value, "page_number": page_number})
+    return chunks

@@ -6,11 +6,13 @@ from app.services.rate_limit_service import check_rate_limit
 from app.schemas.rag import AskRequest
 from fastapi.responses import StreamingResponse
 import re
+from typing import Literal
 from app.services.rag_service import (
     ask_document_rag,
     stream_document_rag,
+    stream_document_events,
 )
-from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
+from fastapi import Query, APIRouter, UploadFile, File, HTTPException, Depends
 from fastapi.responses import FileResponse
 from app.services.chunk_service import chunk_text
 from app.repositories.chunk_repository import (
@@ -34,6 +36,7 @@ from app.services.storage_service import (
 
 from app.services.pdf_service import (
     extract_text_from_pdf,
+    extract_page_chunks,
     clean_extracted_text
 )
 import logging
@@ -95,13 +98,9 @@ def upload_file(
                     raise HTTPException(413, "File is too large. Maximum size is 10 MB")
                 buffer.write(chunk)
 
-        _, text = extract_text_from_pdf(file_path)
-        text = clean_extracted_text(text)
-        if not text.strip():
-            raise HTTPException(422, "No extractable text was found. The PDF may be scanned or image-based.")
-        chunks = chunk_text(text)
+        chunks = extract_page_chunks(file_path)
         if not chunks:
-            raise HTTPException(422, "The PDF did not produce any searchable chunks.")
+            raise HTTPException(422, "No searchable text chunks were found. The PDF may be scanned, empty, or contain only very short text.")
 
         document = ingest_document(
             filename, total_size, datetime.now(timezone.utc), current_user.id,
@@ -358,6 +357,7 @@ def ask_document_stream(
     document_id: int,
     request: AskRequest,
     current_user=Depends(get_current_user),
+    stream_format: Literal["text", "sse"] = Query(default="text", alias="format"),
 ):
     document = get_document_by_id(
         document_id,
@@ -380,6 +380,13 @@ def ask_document_stream(
         if request.min_similarity is not None
         else settings.rag_min_similarity
     )
+
+    if stream_format == "sse":
+        return StreamingResponse(
+            stream_document_events(document_id, request.question, request.top_k, min_similarity),
+            media_type="text/event-stream",
+            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+        )
 
     stream = stream_document_rag(
         document_id=document_id,

@@ -27,6 +27,7 @@ def state(monkeypatch, tmp_path):
         id: Mapped[int] = mapped_column(primary_key=True)
         document_id: Mapped[int] = mapped_column(Integer)
         chunk_index: Mapped[int] = mapped_column(Integer)
+        page_number: Mapped[int | None] = mapped_column(Integer, nullable=True)
         chunk_text: Mapped[str] = mapped_column(String)
         embedding: Mapped[list] = mapped_column(JSON)
     class PendingUpload(Base):
@@ -133,3 +134,16 @@ def test_interrupted_process_leaves_recoverable_marker(state, monkeypatch):
         db.scalar(select(state.PendingUpload)).created_at = datetime.now(timezone.utc) - timedelta(minutes=6)
     ingest.cleanup_pending_uploads()
     assert state.objects == {} and state.count(state.PendingUpload) == 0
+
+
+def test_page_metadata_commits_with_sequential_document_indexes(state):
+    from app.services.ingestion_service import ingest_document
+    # Existing fixture stages its sample PDF in pytest's temporary directory.
+    import tempfile
+    with tempfile.NamedTemporaryFile(suffix='.pdf') as original:
+        original.write(b'%PDF-test'); original.flush()
+        doc = ingest_document('pages.pdf', 9, datetime.now(timezone.utc), 1,
+            [{'chunk_text': 'first passage', 'page_number': 1}, {'chunk_text': 'second passage', 'page_number': 4}], original.name)
+    with state.sessions() as db:
+        chunks = db.scalars(select(state.Chunk).where(state.Chunk.document_id == doc.id).order_by(state.Chunk.chunk_index)).all()
+        assert [(chunk.chunk_index, chunk.page_number) for chunk in chunks] == [(0, 1), (1, 4)]

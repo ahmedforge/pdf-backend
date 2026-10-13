@@ -191,3 +191,15 @@ def chunk_text(
             chunks.append(final_chunk)
 
     return chunks
+
+
+def normalize_chunks(chunks):
+    """Legacy callers may still supply strings without page metadata."""
+    records = []
+    for chunk in chunks:
+        record = {"chunk_text": chunk, "page_number": None} if isinstance(chunk, str) else dict(chunk)
+        page = record.get("page_number")
+        if page is not None and (isinstance(page, bool) or not isinstance(page, int) or page < 1):
+            raise ValueError("page_number must be a positive physical PDF page number")
+        records.append({"chunk_text": record["chunk_text"], "page_number": page})
+    return records

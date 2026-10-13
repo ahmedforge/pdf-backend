@@ -1,3 +1,4 @@
+from app.services.chunk_service import normalize_chunks
 from sqlalchemy import delete, select
 from app.services.embedding_service import generate_embedding
 
@@ -10,7 +11,8 @@ def save_document_chunks(
     document_id: int,
     chunks: list[str]
 ):
-    embeddings = generate_embeddings(chunks)
+    records = normalize_chunks(chunks)
+    embeddings = generate_embeddings([record["chunk_text"] for record in records])
 
     with SessionLocal() as db:
         db.execute(
@@ -23,10 +25,11 @@ def save_document_chunks(
             Chunk(
                 document_id=document_id,
                 chunk_index=index,
-                chunk_text=chunk_text,
+                chunk_text=chunk_text["chunk_text"],
+                page_number=chunk_text["page_number"],
                 embedding=embeddings[index]
             )
-            for index, chunk_text in enumerate(chunks)
+            for index, chunk_text in enumerate(records)
         ]
 
         db.add_all(chunk_rows)
@@ -51,6 +54,7 @@ def get_document_chunks(
             {
                 "id": chunk.id,
                 "chunk_index": chunk.chunk_index,
+                "page_number": chunk.page_number,
                 "chunk_text": chunk.chunk_text
             }
             for chunk in chunks
@@ -80,6 +84,7 @@ def semantic_search_chunks(
             {
                 "id": chunk.id,
                 "chunk_index": chunk.chunk_index,
+                "page_number": chunk.page_number,
                 "chunk_text": chunk.chunk_text,
                 "similarity": round(1 - float(distance_value), 4),
             }

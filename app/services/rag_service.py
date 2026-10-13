@@ -1,4 +1,5 @@
 import re
+import json
 
 from app.repositories.chunk_repository import semantic_search_chunks
 from app.services.llm.factory import get_llm_provider
@@ -111,14 +112,7 @@ def ask_document_rag(
 
     return {
         "answer": answer,
-        "sources": [
-            {
-                "chunk_index": chunk["chunk_index"],
-                "similarity": chunk["similarity"],
-                "preview": chunk["chunk_text"][:300],
-            }
-            for chunk in relevant_chunks
-        ],
+        "sources": build_sources(relevant_chunks),
     }
 def stream_document_rag(
     document_id: int,
@@ -164,3 +158,86 @@ def stream_document_rag(
         f"generation={generation_time:.2f}s "
         f"total={total_time:.2f}s"
     )
+
+
+def build_sources(chunks):
+    return [{
+        "chunk_index": chunk["chunk_index"],
+        "page": chunk.get("page_number"),
+        "text": chunk["chunk_text"],
+        "similarity": chunk["similarity"],
+        "preview": chunk["chunk_text"][:300],
+    } for chunk in chunks]
+
+
+def validated_tokens(tokens, valid_indexes):
+    """Hold only possible citation markers, including markers split across tokens."""
+    prefix = "[Chunk "
+    pending = ""
+    for token in tokens:
+        pending += token
+        while pending:
+            start = pending.find(prefix)
+            if start < 0:
+                keep = next((size for size in range(len(prefix)-1, 0, -1)
+                             if pending.endswith(prefix[:size])), 0)
+                safe = len(pending) - keep
+                if safe:
+                    yield pending[:safe]
+                    pending = pending[safe:]
+                break
+            if start:
+                yield pending[:start]
+                pending = pending[start:]
+            end = pending.find("]")
+            if end < 0:
+                if re.fullmatch(r"\[Chunk \d*", pending):
+                    break
+                yield pending[0]
+                pending = pending[1:]
+                continue
+            marker = pending[:end+1]
+            match = re.fullmatch(r"\[Chunk (\d+)\]", marker)
+            if not match or int(match.group(1)) in valid_indexes:
+                yield marker
+            pending = pending[end+1:]
+    if pending:
+        yield pending
+
+
+def sse_event(name, data):
+    return f"event: {name}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
+
+
+def stream_document_events(document_id, question, top_k=5, min_similarity=None):
+    """Opt-in protocol: sources, token*, done; failures add an error event."""
+    if min_similarity is None:
+        min_similarity = settings.rag_min_similarity
+    try:
+        chunks, prompt = _retrieve_context(document_id, question, top_k, min_similarity)
+    except Exception:
+        yield sse_event("sources", {"sources": []})
+        yield sse_event("error", {"message": "Document retrieval is unavailable. Please retry."})
+        yield sse_event("done", {"complete": False})
+        return
+    yield sse_event("sources", {"sources": build_sources(chunks)})
+    if not chunks:
+        yield sse_event("token", {"text": "I could not find the answer in the document."})
+        yield sse_event("done", {"complete": True})
+        return
+    tokens = None
+    try:
+        tokens = llm.stream(prompt)
+        for token in validated_tokens(tokens, {chunk["chunk_index"] for chunk in chunks}):
+            if token:
+                yield sse_event("token", {"text": token})
+    except Exception:
+        yield sse_event("error", {"message": "Answer generation was interrupted. Please retry."})
+        yield sse_event("done", {"complete": False})
+        return
+    finally:
+        if tokens is not None:
+            close = getattr(tokens, "close", None)
+            if close:
+                close()
+    yield sse_event("done", {"complete": True})
