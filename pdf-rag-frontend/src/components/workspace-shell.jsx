@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState, useSyncExternalStore } from "react"
-import { FileText, LogOut, PanelLeftClose, PanelLeftOpen, Upload, MessageSquare, LoaderCircle } from "lucide-react"
-import { apiRequest } from "@/api"
+import { lazy, Suspense, useCallback, useRef, useState, useSyncExternalStore } from "react"
+import { FileText, LogOut, PanelLeftClose, PanelLeftOpen, Upload, MessageSquare } from "lucide-react"
+const PdfViewer = lazy(() => import("@/components/pdf-viewer").then(module => ({ default: module.PdfViewer })))
 import { Button } from "@/components/ui/button"
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -14,51 +14,6 @@ function subscribeMobile(callback) {
 }
 const getMobileSnapshot = () => window.matchMedia("(max-width: 767px)").matches
 
-function PdfPreview({ documentId, token, filename }) {
-  const [preview, setPreview] = useState(null)
-  useEffect(() => {
-    if (!documentId) return
-    const controller = new AbortController()
-    let active = true
-    let url
-    apiRequest(`/download/${documentId}`, {
-      headers: { Authorization: `Bearer ${token}` }, signal: controller.signal,
-    }).then(response => response.blob()).then(blob => {
-      if (!active) return
-      url = URL.createObjectURL(blob)
-      setPreview({ id: documentId, url })
-    }).catch(error => {
-      if (active && error.name !== "AbortError") setPreview({ id: documentId, error: error.message })
-    })
-    return () => {
-      active = false
-      controller.abort()
-      if (url) URL.revokeObjectURL(url)
-    }
-  }, [documentId, token])
-
-  return (
-    <section className="flex h-full min-h-0 flex-col bg-muted/40" aria-label="PDF preview">
-      <div className="flex h-14 shrink-0 items-center gap-2 border-b bg-background px-5 text-sm">
-        <FileText className="size-4 text-muted-foreground" aria-hidden="true" />
-        <span className="truncate">{filename || "PDF preview"}</span>
-      </div>
-      {!documentId ? (
-        <div className="flex flex-1 flex-col items-center justify-center gap-3 p-8 text-center text-muted-foreground">
-          <FileText className="size-10 stroke-1" aria-hidden="true" />
-          <p className="text-sm">Your PDF will appear here.</p>
-        </div>
-      ) : preview?.id !== documentId ? (
-        <div role="status" className="flex flex-1 items-center justify-center gap-2 text-sm text-muted-foreground"><LoaderCircle className="size-4" />Loading PDF…</div>
-      ) : preview.error ? (
-        <p role="alert" className="p-6 text-sm">Could not open PDF: {preview.error}</p>
-      ) : (
-        <iframe className="h-full min-h-0 w-full flex-1 border-0" src={preview.url} title={`PDF: ${filename || "selected document"}`} />
-      )}
-    </section>
-  )
-}
-
 const suggestions = ["Summarize this document", "What are the key takeaways?", "Explain the main ideas simply"]
 
 export function WorkspaceShell({ token, files, documentId, onSelectDocument, onUpload, onLogout, question, onQuestionChange, onAsk, turns, generating, onStop, onRetry, onClear, storageWarning, message, loading }) {
@@ -67,6 +22,17 @@ export function WorkspaceShell({ token, files, documentId, onSelectDocument, onU
   const [mobileTab, setMobileTab] = useState("chat")
   const [dragging, setDragging] = useState(false)
   const [uploadError, setUploadError] = useState("")
+  const [pages, setPages] = useState({})
+  const [navigation, setNavigation] = useState(null)
+  const currentPage = pages[documentId] || 1
+  const pageChanged = useCallback(page => {
+    setPages(old => old[documentId] === page ? old : { ...old, [documentId]: page })
+  }, [documentId])
+  function cite(source) {
+    if (!source.page) return
+    setNavigation({ documentId, page: source.page, source, key: crypto.randomUUID(), createdAt: Date.now() })
+    if (mobile) { setMobileTab('pdf'); setCollapsed(true) }
+  }
   const input = useRef(null)
   const selected = files.find(file => file.id === documentId)
 
@@ -84,11 +50,12 @@ export function WorkspaceShell({ token, files, documentId, onSelectDocument, onU
     onUpload(file)
   }
 
-  const preview = <PdfPreview documentId={documentId} token={token} filename={selected?.filename} />
+  const preview = <Suspense fallback={<p role="status" className="p-6 text-sm">Loading PDF viewer…</p>}><PdfViewer key={documentId || 'empty'} documentId={documentId} token={token} filename={selected?.filename}
+    currentPage={currentPage} onPageChange={pageChanged} navigation={navigation?.documentId === documentId ? navigation : null} /></Suspense>
   const chat = (
     <ChatPanel key={documentId || 'empty'} documentId={documentId} turns={turns} question={question}
       onQuestionChange={onQuestionChange} onAsk={onAsk} onRetry={onRetry} onStop={onStop}
-      generating={generating} loading={loading} message={uploadError || message} onClear={onClear} storageWarning={storageWarning}>
+      generating={generating} loading={loading} message={uploadError || message} onClear={onClear} storageWarning={storageWarning} currentPage={currentPage} onCitation={cite}>
             <div className="fade-in flex min-h-64 flex-col items-center justify-center gap-4 text-center">
               <div className="rounded-xl border bg-card p-3 shadow-xs"><MessageSquare className="size-5 text-primary" aria-hidden="true" /></div>
               <h2 className="m-0 text-xl font-medium">A little clarity, one question at a time.</h2>
@@ -123,7 +90,7 @@ export function WorkspaceShell({ token, files, documentId, onSelectDocument, onU
           <div className="p-4"><Button className="w-full rounded-xl" disabled={loading || generating} onClick={() => input.current?.click()}><Upload />Upload PDF</Button></div>
           <div className="px-4 pb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">Documents</div>
           <nav aria-label="Select a document" className="flex-1 space-y-1 overflow-y-auto px-2">{files.length ? files.map(file => (
-            <Button key={file.id} variant="ghost" className={`h-auto w-full justify-start rounded-xl px-3 py-3 text-left ${file.id === documentId ? "bg-accent text-accent-foreground" : ""}`} aria-current={file.id === documentId ? "true" : undefined} disabled={loading} title={file.filename} onClick={() => { onSelectDocument(file.id); if (window.matchMedia("(max-width: 767px)").matches) setCollapsed(true) }}><FileText className="size-4 shrink-0" /><span className="truncate">{file.filename}</span></Button>
+            <Button key={file.id} variant="ghost" className={`h-auto w-full justify-start rounded-xl px-3 py-3 text-left ${file.id === documentId ? "bg-accent text-accent-foreground" : ""}`} aria-current={file.id === documentId ? "true" : undefined} disabled={loading} title={file.filename} onClick={() => { setNavigation(null); onSelectDocument(file.id); if (window.matchMedia("(max-width: 767px)").matches) setCollapsed(true) }}><FileText className="size-4 shrink-0" /><span className="truncate">{file.filename}</span></Button>
           )) : <p className="px-3 py-4 text-sm text-muted-foreground">Your library starts here.</p>}</nav>
           <div className="border-t p-3"><Button variant="ghost" className="w-full justify-start" onClick={onLogout}><LogOut />Log out</Button></div>
         </aside>}

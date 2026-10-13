@@ -4,7 +4,7 @@ React 19 + Vite 8, JavaScript/JSX, Tailwind CSS 4, and shadcn/ui components.
 
 ## Run locally
 
-Use Node.js 22.12 or newer (or a compatible newer LTS).
+Use Node.js 22.13 or newer (or a compatible newer LTS).
 
 ```bash
 npm ci
@@ -30,10 +30,10 @@ The preview server normally uses port 4173; authenticated browser API calls requ
 - Theme toggle starts with the OS preference and persists an explicit light/dark choice under `pdf-rag-theme` in localStorage.
 - Collapsible document sidebar, resizable desktop PDF/chat panels, and mobile PDF/chat tabs.
 - Existing register/login, upload and streaming answer flows remain connected to FastAPI.
-- PDF preview downloads authenticated blobs through the existing `/download/{id}` route, cleans up object URLs, and uses the browser's native PDF viewer. Mobile rendering depends on browser PDF support; page-aware rendering is a later phase.
+- PDF preview downloads authenticated blobs through the existing `/download/{id}` route, cleans up object URLs, and now uses the virtualized PDF.js viewer introduced in Phase 3.
 - Drag-and-drop upload and three suggested questions. The composer stays anchored below the scrollable chat area.
 
-Phase 2 adds chat history and Markdown rendering below. Page citation chips and page navigation remain out of scope until Phase 3.
+Phase 2 adds chat history and Markdown rendering below. Page citation chips and page navigation are implemented in Phase 3 below.
 
 ## UI components and styling
 
@@ -68,3 +68,31 @@ VITE_API_BASE_URL=https://pdf-rag-backend.lemontree-0d2266d5.centralindia.azurec
 ```
 
 In the app, ask questions on two PDFs, switch between them, and reload to verify separate histories. Clear one chat and verify the other remains. Try Shift+Enter, copy a code block, scroll up during a response, and use Stop/Retry. Check light/dark themes and mobile PDF/chat tabs. Automated tests cover storage isolation/failures, retry races, UTF-8 chunk boundaries, full-response reveal, empty streams, and cancellation. Browser QA uses an isolated local API fixture to exercise controlled failures without touching production data.
+
+## Phase 3: citation sources and PDF navigation
+
+- Chat now posts the existing JSON body with `fetch` to `/files/{id}/ask/stream?format=sse`, using `VITE_API_BASE_URL` and Bearer authentication. A ReadableStream parser handles `sources`, `token`, `error`, and `done` events, split JSON/UTF-8/CRLF reads, incomplete streams, and cancellation. SSE errors preserve partial answers and show Retry. The backend contract is documented in `../docs/page-citations.md`.
+- Each turn persists its normalized source array in the existing localStorage history format. Source-less Phase 2 messages remain valid and their `[Chunk N]` text stays plain.
+- Citation chips match `chunk_index`, show a page/snippet tooltip, and navigate only when the source has a positive page. NULL-page chips show the preview without navigation; unmatched markers remain plain. Markers in code blocks/inline code/links are not converted to chips.
+- Sources rows list unique physical pages actually cited in that answer, not every retrieved source.
+- A shared current-page state connects chat and the PDF toolbar. Citation clicks select the PDF tab on mobile. The toolbar provides page input, previous/next, zoom and fit width.
+- PDF bytes are downloaded through the existing authenticated API helper. React-PDF/PDF.js uses a Vite-bundled local worker and locally served/copied font, CMap, WASM and ICC assets. No native browser PDF toolbar or CDN worker is used.
+- TanStack Virtual mounts only nearby pages (overscan 2). Page heights are measured as they render; distant jumps use estimates then correct their alignment. The full authenticated PDF is still downloaded; virtualization limits page/canvas rendering, not download size.
+- Cited passages are matched against normalized text-layer spans (Unicode and whitespace normalization). Matching spans highlight briefly. Missing/extraction-mismatched text falls back to a page pulse. Fade animations are 180ms and reduced-motion preferences are respected.
+
+### Check this phase
+
+```bash
+npm ci
+npm run test
+npm run lint
+VITE_API_BASE_URL=https://YOUR-SSE-ENABLED-BACKEND npm run build
+# For an approved Step 1 backend running locally:
+VITE_API_BASE_URL=http://localhost:8000 npm run dev
+```
+
+At http://localhost:5173, upload a multi-page text PDF, ask a question, click a numbered citation and compare the physical page with the source. Try toolbar navigation/zoom/fit width, tooltips, and mobile tabs. Reload and verify the chips still work. For legacy documents with NULL pages, verify preview-only chips. Older history without sources should still display its original marker text.
+
+Tests cover one-byte SSE boundaries, server error events, missing done, cancellation, citation mapping/deduplication, old/new localStorage records and text normalization. Browser verification uses a local test service and a 1,002-page synthetic PDF to check bounded rendering, physical pages 7/999/1002, text-layer highlighting, page pulse fallback, error/retry and mobile navigation.
+
+The known Azure URL did not advertise the Step 1 `format=sse` parameter in its OpenAPI schema during this phase's check. Use an SSE-enabled backend URL before deploying this frontend; backend deployment/configuration was not changed here.

@@ -1,4 +1,5 @@
 import process from 'node:process'
+import { pdfAssetsPlugin } from './build/pdf-assets.js'
 import { fileURLToPath, URL } from 'node:url'
 import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
@@ -14,7 +15,7 @@ export default defineConfig(({ mode }) => {
     }
   }
   return {
-    plugins: [react(), tailwindcss()],
+    plugins: [react(), tailwindcss(), pdfAssetsPlugin()],
     resolve: { alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) } },
   }
 })

@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import Markdown from 'react-markdown'
-import remarkGfm from 'remark-gfm'
+import { CitationAnswer } from '@/components/citation-answer'
 import { ArrowDown, ArrowUp, MessageSquare, RotateCcw, Square, Copy, Check, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
@@ -30,7 +29,7 @@ const markdownComponents = {
   img: ({ alt }) => <span>{alt || 'Image'}</span>,
 }
 
-export function ChatPanel({ turns, question, onQuestionChange, onAsk, onRetry, onStop, generating, loading, documentId, message, onClear, storageWarning, children }) {
+export function ChatPanel({ turns, question, onQuestionChange, onAsk, onRetry, onStop, generating, loading, documentId, message, onClear, storageWarning, onCitation, currentPage, children }) {
   const scroll = useRef(null)
   const textarea = useRef(null)
   const nearBottom = useRef(true)
@@ -76,7 +75,7 @@ export function ChatPanel({ turns, question, onQuestionChange, onAsk, onRetry, o
             <div key={turn.id} className="fade-in space-y-6">
               <article aria-label="Your message" className="ml-auto w-fit max-w-[80%] whitespace-pre-wrap break-words rounded-2xl rounded-br-md bg-secondary px-4 py-3 text-sm leading-6">{turn.question}</article>
               <article aria-label="AI answer" aria-busy={turn.status === 'streaming'} className="min-w-0 text-sm leading-7">
-                {turn.answer ? <div className="chat-markdown"><Markdown remarkPlugins={[remarkGfm]} components={markdownComponents} skipHtml>{turn.answer}</Markdown></div>
+                {turn.answer ? <div className="chat-markdown"><CitationAnswer answer={turn.answer} sources={turn.sources} onNavigate={onCitation} currentPage={currentPage} components={markdownComponents} /></div>
                   : turn.status === 'streaming' ? <p className="flex items-center gap-2 text-muted-foreground"><span className="waiting-dot size-1.5 rounded-full bg-primary" aria-hidden="true" />Searching document...</p> : null}
                 {(turn.status === 'error' || turn.status === 'stopped') && <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
                   <p role={turn.status === 'error' ? 'alert' : undefined}>{turn.error || 'Answer stopped.'}</p>

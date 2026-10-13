@@ -4,7 +4,7 @@ export function chatReducer(state, action) {
   if (action.type === 'clear') return { ...state, [action.documentId]: [] }
   const turns = state[action.documentId] || []
   if (action.type === 'start') {
-    const turn = { id: action.id, question: action.question, answer: '', status: 'streaming', error: '' }
+    const turn = { id: action.id, question: action.question, answer: '', status: 'streaming', error: '', sources: [] }
     return { ...state, [action.documentId]: action.retryId
       ? turns.map(old => old.id === action.retryId ? turn : old)
       : [...turns, turn] }

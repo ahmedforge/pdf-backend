@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react'
 import { apiRequest } from '@/api'
 import { historyScope, loadHistories, saveHistories, STORAGE_WARNING } from '@/lib/chat-storage'
-import { chatReducer, readAnswerStream } from '@/lib/chat-state'
+import { readCitationStream } from '@/lib/sse-stream'
+import { chatReducer } from '@/lib/chat-state'
 
 export function useDocumentChat(token) {
   const scope = historyScope(token)
@@ -73,16 +74,14 @@ export function useDocumentChat(token) {
       if (request.current === current) dispatch({ type: 'update', documentId, id: current.id, update: value })
     }
     try {
-      const response = await apiRequest(`/files/${documentId}/ask/stream`, {
+      const response = await apiRequest(`/files/${documentId}/ask/stream?format=sse`, {
         method: 'POST', signal: current.controller.signal,
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', Accept: 'text/event-stream' },
         body: JSON.stringify({ question: question.trim(), top_k: 3 }),
       })
-      const text = await readAnswerStream(response.body, answer => update({ answer }), current.controller.signal)
-      const marker = text.indexOf('[Generation interrupted.')
-      update(marker >= 0
-        ? { answer: text.slice(0, marker).trimEnd(), status: 'error', error: 'Generation was interrupted. Please retry.' }
-        : { status: 'complete' })
+      if (!response.headers.get('content-type')?.includes('text/event-stream')) throw new Error('The server does not support citation streaming yet. Please retry after deployment.')
+      await readCitationStream(response.body, update, current.controller.signal)
+      update({ status: 'complete' })
     } catch (error) {
       update({ status: error.name === 'AbortError' ? 'stopped' : 'error', error: error.name === 'AbortError' ? '' : error.message })
     } finally {

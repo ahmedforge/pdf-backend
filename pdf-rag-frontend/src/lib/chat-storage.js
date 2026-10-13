@@ -1,3 +1,4 @@
+import { normalizeSources } from './citations.js'
 const PREFIX = 'pdf-rag-chat:v1:'
 export const STORAGE_WARNING = 'Chat history could not be saved on this device. Messages will remain available until you close or reload this page.'
 
@@ -24,7 +25,8 @@ export function loadHistories(storage, scope) {
         if (!Array.isArray(data) || !data.every(turn => turn && typeof turn.id === 'string' && typeof turn.question === 'string' && typeof turn.answer === 'string' && ['streaming', 'complete', 'error', 'stopped'].includes(turn.status))) throw new Error('Invalid history')
         history[id] = data.map(turn => ({ id: turn.id, question: turn.question, answer: turn.answer,
           status: turn.status === 'streaming' ? 'stopped' : turn.status,
-          error: typeof turn.error === 'string' ? turn.error : '' }))
+          error: typeof turn.error === 'string' ? turn.error : '',
+          ...(Array.isArray(turn.sources) ? { sources: normalizeSources(turn.sources) } : {}) }))
       } catch { warning = 'Some saved chat history could not be read. You can continue chatting.' }
     }
   } catch { warning = STORAGE_WARNING }
