@@ -1,9 +1,12 @@
 import os
+from uuid import uuid4
+from pypdf.errors import PdfReadError, ParseError
 from tempfile import mkstemp
 from datetime import datetime, timezone
 from app.config import settings
 from app.services.rate_limit_service import check_rate_limit
 from app.schemas.rag import AskRequest
+from app.schemas.documents import RenameDocumentRequest
 from fastapi.responses import StreamingResponse
 import re
 from typing import Literal
@@ -23,15 +26,15 @@ from app.repositories.chunk_repository import (
 from app.repositories.document_repository import (
     get_all_documents,
     get_document_by_id,
-    delete_document
+    delete_document, rename_document, local_storage_key_in_use,
 )
 
 from app.security import get_current_user
 
 from app.services.file_service import validate_filename
-from app.services.ingestion_service import ingest_document
+from app.services.ingestion_service import ingest_document, cleanup_pending_uploads
 from app.services.storage_service import (
-    storage_settings, persist_pdf, open_pdf, delete_pdf,
+    storage_settings, open_pdf, local_pdf_path,
 )
 
 from app.services.pdf_service import (
@@ -82,8 +85,13 @@ def upload_file(
         fd, file_path = mkstemp(prefix="pdf-upload-", suffix=".pdf")
         os.close(fd)
     else:
-        os.makedirs("uploads", exist_ok=True)
-        file_path = os.path.join("uploads", filename)
+        # The key is entirely server-generated; names/owners never form a path.
+        key = uuid4().hex + ".pdf"
+        while local_storage_key_in_use(key):
+            key = uuid4().hex + ".pdf"
+        path = local_pdf_path(key)
+        path.parent.mkdir(exist_ok=True)
+        file_path = str(path)
 
     created = remote
     complete = False
@@ -95,10 +103,13 @@ def upload_file(
             while chunk := file.file.read(1024 * 1024):
                 total_size += len(chunk)
                 if total_size > MAX_FILE_SIZE:
-                    raise HTTPException(413, "File is too large. Maximum size is 10 MB")
+                    raise HTTPException(413, "File is too large. Maximum size is 10 MiB (10485760 bytes)")
                 buffer.write(chunk)
 
-        chunks = extract_page_chunks(file_path)
+        try:
+            chunks = extract_page_chunks(file_path)
+        except (PdfReadError, ParseError) as exc:
+            raise HTTPException(422, "This PDF is corrupt, encrypted, or unreadable. Upload an unencrypted, readable PDF.") from exc
         if not chunks:
             raise HTTPException(422, "No searchable text chunks were found. The PDF may be scanned, empty, or contain only very short text.")
 
@@ -112,6 +123,10 @@ def upload_file(
             "message": "File uploaded successfully",
             "filename": filename,
             "document_id": document.id,
+            "id": document.id,
+            "display_name": document.display_name or document.filename,
+            "size_bytes": document.size_bytes,
+            "uploaded_at": document.uploaded_at,
             "chunks_created": len(chunks),
         }
     except FileExistsError as exc:
@@ -123,7 +138,10 @@ def upload_file(
         raise HTTPException(500, "PDF upload processing failed.") from exc
     finally:
         if created and (remote or not complete):
-            os.remove(file_path)
+            if remote:
+                os.remove(file_path)
+            else:
+                local_pdf_path(key).unlink(missing_ok=True)
 
 
 @router.get("/files")
@@ -137,40 +155,29 @@ def list_files(
     }
 
 
+@router.patch("/files/{document_id}")
+def rename_file(document_id: int, request: RenameDocumentRequest,
+                current_user=Depends(get_current_user)):
+    document = rename_document(document_id, current_user.id, request.display_name)
+    if document is None:
+        raise HTTPException(404, "Document not found")
+    return {"id": document.id, "filename": document.filename,
+            "display_name": document.display_name or document.filename,
+            "size_bytes": document.size_bytes, "uploaded_at": document.uploaded_at}
+
+
 @router.delete("/files/{document_id}")
-def delete_file(
-    document_id: int,
-    current_user=Depends(get_current_user)
-):
-    document = get_document_by_id(
-        document_id,
-        current_user.id
-    )
-
-    if not document:
-        raise HTTPException(
-            status_code=404,
-            detail="Document not found"
-        )
-
-    filename = document.filename
-    delete_pdf(document.storage_key or filename)
-
-    delete_document(
-        document_id,
-        current_user.id
-    )
-    logger.info(
-    "User %s deleted document %s",
-    current_user.id,
-    document_id
-    )
-
-    return {
-        "message": "File deleted successfully",
-        "document_id": document_id,
-        "filename": filename
-    }
+def delete_file(document_id: int, current_user=Depends(get_current_user)):
+    document = delete_document(document_id, current_user.id)
+    if document is None:
+        raise HTTPException(404, "Document not found")
+    try:
+        cleanup_pending_uploads(document.storage_key or document.filename)
+    except Exception:
+        logger.warning("Document deleted; PDF cleanup pending and will retry")
+    logger.info("User %s deleted document %s", current_user.id, document_id)
+    return {"message": "File deleted successfully", "document_id": document_id,
+            "filename": document.filename}
 
 
 def readable_document(document_id: int, current_user=Depends(get_current_user)):

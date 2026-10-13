@@ -20,7 +20,9 @@ def validate_filename(filename: str):
 def get_existing_file(filename: str):
     filename = validate_filename(filename)
 
-    file_path = os.path.join("uploads", filename)
+    # Retained legacy helper; current document routes use storage identity.
+    from app.services.storage_service import local_pdf_path
+    file_path = str(local_pdf_path(filename))
 
     if not os.path.exists(file_path):
         raise HTTPException(

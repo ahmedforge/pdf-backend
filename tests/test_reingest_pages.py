@@ -21,15 +21,15 @@ def setup(state, monkeypatch):
 
 def test_dry_run_apply_and_rerun_are_safe(setup):
     state, doc = setup
-    assert reingest.rebuild_document(doc.id) == 'dry-run: 2 page-aware chunks'
+    assert reingest.rebuild_document(doc.id, owner_id=doc.owner_id) == 'dry-run: 2 page-aware chunks'
     with state.sessions() as db:
         assert db.scalar(select(state.Chunk)).page_number is None
-    assert reingest.rebuild_document(doc.id, apply=True) == 'rebuilt: 2 chunks'
+    assert reingest.rebuild_document(doc.id, apply=True, owner_id=doc.owner_id) == 'rebuilt: 2 chunks'
     with state.sessions() as db:
         chunks = db.scalars(select(state.Chunk).order_by(state.Chunk.chunk_index)).all()
         assert [(chunk.chunk_index, chunk.page_number) for chunk in chunks] == [(0, 2), (1, 5)]
         assert db.get(state.Document, doc.id).storage_key == doc.storage_key
-    assert reingest.rebuild_document(doc.id, apply=True) == 'already page-aware'
+    assert reingest.rebuild_document(doc.id, apply=True, owner_id=doc.owner_id) == 'already page-aware'
 
 
 def test_missing_original_or_failed_replacement_preserves_old_chunks(setup, monkeypatch):
@@ -38,9 +38,19 @@ def test_missing_original_or_failed_replacement_preserves_old_chunks(setup, monk
     def missing(key): raise FileNotFoundError('missing'); yield
     with monkeypatch.context() as patch:
         patch.setattr(reingest, 'open_pdf', missing)
-        with pytest.raises(FileNotFoundError): reingest.rebuild_document(doc.id, apply=True)
+        with pytest.raises(FileNotFoundError): reingest.rebuild_document(doc.id, apply=True, owner_id=doc.owner_id)
     monkeypatch.setattr(reingest, 'extract_page_chunks', lambda path: [{'chunk_text': None, 'page_number': 1}])
-    with pytest.raises(Exception): reingest.rebuild_document(doc.id, apply=True)
+    with pytest.raises(Exception): reingest.rebuild_document(doc.id, apply=True, owner_id=doc.owner_id)
     with state.sessions() as db:
         chunk = db.scalar(select(state.Chunk))
         assert chunk.chunk_text == 'example text' and chunk.page_number is None
+
+
+def test_foreign_owner_never_opens_or_changes_original(setup, monkeypatch):
+    state, doc = setup
+    def forbidden(*args):
+        raise AssertionError('Foreign original was read')
+    monkeypatch.setattr(reingest, 'open_pdf', forbidden)
+    assert reingest.rebuild_document(doc.id, apply=True, owner_id=doc.owner_id + 1) == 'missing document'
+    with state.sessions() as db:
+        assert db.scalar(select(state.Chunk)).chunk_text == 'example text'

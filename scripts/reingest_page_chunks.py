@@ -17,9 +17,9 @@ from app.services.pdf_service import extract_page_chunks
 from app.services.storage_service import open_pdf
 
 
-def rebuild_document(document_id, apply=False, force=False):
+def rebuild_document(document_id, apply=False, force=False, *, owner_id):
     with SessionLocal() as db:
-        document = db.get(Document, document_id)
+        document = db.scalar(select(Document).where(Document.id == document_id, Document.owner_id == owner_id))
         if document is None:
             return "missing document"
         key = document.storage_key or document.filename
@@ -39,7 +39,7 @@ def rebuild_document(document_id, apply=False, force=False):
     if len(embeddings) != len(chunks):
         raise RuntimeError("Embedding count mismatch; old chunks preserved")
     with SessionLocal.begin() as db:
-        document = db.scalar(select(Document).where(Document.id == document_id).with_for_update())
+        document = db.scalar(select(Document).where(Document.id == document_id, Document.owner_id == owner_id).with_for_update())
         if document is None:
             return "deleted during re-ingestion; unchanged"
         if (document.storage_key or document.filename) != key or document.filename != filename:
@@ -57,6 +57,7 @@ def rebuild_document(document_id, apply=False, force=False):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--owner-id", type=int, required=True, help="Only this owner’s documents are read or rebuilt")
     parser.add_argument("--document-id", action="append", type=int)
     parser.add_argument("--apply", action="store_true")
     parser.add_argument("--force", action="store_true", help="Also rebuild page-aware documents")
@@ -66,10 +67,10 @@ def main():
         ids = args.document_id
     else:
         with SessionLocal() as db:
-            ids = db.scalars(select(Document.id).order_by(Document.id)).all()
+            ids = db.scalars(select(Document.id).where(Document.owner_id == args.owner_id).order_by(Document.id)).all()
     for document_id in ids:
         try:
-            print(f"Document {document_id}: {rebuild_document(document_id, args.apply, args.force)}")
+            print(f"Document {document_id}: {rebuild_document(document_id, args.apply, args.force, owner_id=args.owner_id)}")
         except Exception as exc:
             # No credential-bearing exception details or file contents in logs.
             print(f"Document {document_id}: {type(exc).__name__}; unchanged")

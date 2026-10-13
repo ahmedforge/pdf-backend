@@ -4,7 +4,8 @@ from pathlib import Path
 
 import pytest
 from fastapi import HTTPException
-from sqlalchemy import create_engine, String, Integer, DateTime, JSON, select
+from sqlalchemy import create_engine, String, Integer, DateTime, JSON, select, UniqueConstraint, ForeignKey, event
+from sqlalchemy.pool import StaticPool
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
 import app.services.ingestion_service as ingest
 
@@ -17,7 +18,9 @@ def state(monkeypatch, tmp_path):
     class Document(Base):
         __tablename__ = "documents"
         id: Mapped[int] = mapped_column(primary_key=True)
-        filename: Mapped[str] = mapped_column(String, unique=True)
+        filename: Mapped[str] = mapped_column(String)
+        display_name: Mapped[str | None] = mapped_column(String(120), nullable=True)
+        __table_args__ = (UniqueConstraint("owner_id", "filename", name="uq_documents_owner_filename"),)
         storage_key: Mapped[str | None] = mapped_column(String)
         size_bytes: Mapped[int] = mapped_column(Integer)
         owner_id: Mapped[int] = mapped_column(Integer)
@@ -25,7 +28,7 @@ def state(monkeypatch, tmp_path):
     class Chunk(Base):
         __tablename__ = "chunks"
         id: Mapped[int] = mapped_column(primary_key=True)
-        document_id: Mapped[int] = mapped_column(Integer)
+        document_id: Mapped[int] = mapped_column(ForeignKey("documents.id", ondelete="CASCADE"))
         chunk_index: Mapped[int] = mapped_column(Integer)
         page_number: Mapped[int | None] = mapped_column(Integer, nullable=True)
         chunk_text: Mapped[str] = mapped_column(String)
@@ -34,7 +37,10 @@ def state(monkeypatch, tmp_path):
         __tablename__ = "pending_uploads"
         storage_key: Mapped[str] = mapped_column(String, primary_key=True)
         created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
-    engine = create_engine("sqlite://")
+    engine = create_engine("sqlite://", poolclass=StaticPool, connect_args={"check_same_thread": False})
+    @event.listens_for(engine, "connect")
+    def foreign_keys(connection, _):
+        connection.execute("PRAGMA foreign_keys=ON")
     Base.metadata.create_all(engine)
     sessions = sessionmaker(engine, expire_on_commit=False)
     for name, value in [("SessionLocal", sessions), ("Document", Document), ("Chunk", Chunk), ("PendingUpload", PendingUpload)]:
@@ -147,3 +153,14 @@ def test_page_metadata_commits_with_sequential_document_indexes(state):
     with state.sessions() as db:
         chunks = db.scalars(select(state.Chunk).where(state.Chunk.document_id == doc.id).order_by(state.Chunk.chunk_index)).all()
         assert [(chunk.chunk_index, chunk.page_number) for chunk in chunks] == [(0, 1), (1, 4)]
+
+
+def test_remote_same_filename_is_allowed_for_another_owner(state, tmp_path):
+    first = state.upload()
+    path = tmp_path/'second.pdf'; path.write_bytes(b'%PDF-second')
+    second = ingest.ingest_document('example.pdf', 11, datetime.now(timezone.utc), 2, ['second text'], str(path))
+    assert first.filename == second.filename
+    assert first.storage_key != second.storage_key
+    assert state.count(state.Document) == 2
+    assert state.objects[first.storage_key] == b'%PDF-test'
+    assert state.objects[second.storage_key] == b'%PDF-second'
