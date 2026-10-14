@@ -1,0 +1,7 @@
+{
+  "navigationFallback": {
+    "rewrite": "/index.html",
+    "exclude": ["/assets/*", "/pdfjs/*", "/*.{css,js,mjs,wasm,woff,woff2,png,jpg,jpeg,gif,svg,ico}"]
+  },
+  "mimeTypes": { ".mjs": "text/javascript", ".wasm": "application/wasm" }
+}

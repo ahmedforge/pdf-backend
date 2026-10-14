@@ -8,6 +8,7 @@ export async function apiRequest(path, options = {}) {
     try {
       const data = JSON.parse(body)
       if (typeof data.detail === "string") message = data.detail
+      else if (Array.isArray(data.detail)) message = data.detail.map(item => typeof item?.msg === "string" ? item.msg : "").filter(Boolean).join("; ") || message
     } catch { /* Upstream HTML errors should not fill the application UI. */ }
     const error = new Error(message)
     error.status = response.status

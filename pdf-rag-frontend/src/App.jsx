@@ -1,5 +1,7 @@
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { apiRequest } from "./api"
+import { useUploadQueue } from "@/hooks/use-upload-queue"
+import { readToken, saveToken, removeToken } from "@/lib/token-storage"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { useDocumentChat } from "@/hooks/use-document-chat"
 import { WorkspaceShell } from "@/components/workspace-shell"
@@ -15,7 +17,9 @@ function App() {
   const [authMode, setAuthMode] = useState("login")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
-  const [token, setToken] = useState(localStorage.getItem("token") || "")
+  const [token, setToken] = useState(readToken)
+  const activeToken = useRef(token)
+  useEffect(() => { activeToken.current = token }, [token])
 
   const [files, setFiles] = useState([])
   const [documentId, setDocumentId] = useState(null)
@@ -34,7 +38,7 @@ function App() {
   const handleFileError = useCallback(error => {
     if (error.status === 401) {
       resetChat()
-      localStorage.removeItem("token")
+      removeToken()
       setToken("")
       setFiles([])
       setDocumentId(null)
@@ -46,7 +50,9 @@ function App() {
 
   const loadFiles = useCallback(() => {
     if (!token) return Promise.resolve()
-    return fetchFiles(token).then(applyFiles).catch(handleFileError)
+    return fetchFiles(token)
+      .then(data => { if (activeToken.current === token) applyFiles(data) })
+      .catch(error => { if (activeToken.current === token) handleFileError(error) })
   }, [token, applyFiles, handleFileError])
 
   useEffect(() => {
@@ -85,10 +91,10 @@ function App() {
       const data = await response.json()
 
       chat.reset()
-      localStorage.setItem("token", data.access_token)
+      const savedToken = saveToken(data.access_token)
       setToken(data.access_token)
       setPassword("")
-      setMessage(authMode === "register" ? "Account created and logged in" : "Login successful")
+      setMessage(savedToken ? (authMode === "register" ? "Account created and logged in" : "Login successful") : "Logged in. Device storage is unavailable; sign in again after reloading.")
     } catch (error) {
       setMessage(`Authentication failed: ${error.message}`)
     } finally {
@@ -96,43 +102,35 @@ function App() {
     }
   }
 
-  async function handleUpload(selectedFile) {
-    if (!selectedFile) {
-      setMessage("Choose a PDF first")
-      return
-    }
+  const uploads = useUploadQueue(token, async data => {
+    setDocumentId(previous => previous ?? data.document_id)
+    await loadFiles()
+  })
 
-    setLoading(true)
-    setMessage("Uploading and indexing… the first PDF may take several minutes.")
-
+  async function renameDocument(id, displayName) {
+    const previous = files.find(file => file.id === id)
+    setFiles(old => old.map(file => file.id === id ? { ...file, display_name: displayName } : file))
     try {
-      const formData = new FormData()
-      formData.append("file", selectedFile)
-
-      const response = await apiRequest("/upload", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-        body: formData,
-      })
-
-      const data = await response.json()
-
-      setDocumentId(data.document_id)
-      setMessage(`Uploaded successfully. Document ID: ${data.document_id}`)
-
-      await loadFiles()
+      const response = await apiRequest(`/files/${id}`, { method: 'PATCH', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ display_name: displayName }) })
+      const updated = await response.json()
+      setFiles(old => old.map(file => file.id === id ? updated : file))
     } catch (error) {
-      setMessage(`Upload failed: ${error.message}`)
-    } finally {
-      setLoading(false)
+      setFiles(old => old.map(file => file.id === id ? previous : file))
+      throw error
     }
+  }
+
+  async function deleteDocument(id) {
+    await apiRequest(`/files/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } })
+    chat.remove(id)
+    setFiles(old => old.filter(file => file.id !== id))
+    setDocumentId(old => old === id ? files.find(file => file.id !== id)?.id ?? null : old)
+    setMessage('Document deleted.')
   }
 
   function handleAsk(event) {
     event.preventDefault()
-    if (!loading) { setMessage(""); chat.send(documentId, question) }
+    setMessage(""); chat.send(documentId, question)
   }
 
   function selectDocument(id) {
@@ -142,7 +140,8 @@ function App() {
   }
 
   function handleLogout() {
-    localStorage.removeItem("token")
+    uploads.reset()
+    removeToken()
     setToken("")
     setFiles([])
     setDocumentId(null)
@@ -204,12 +203,12 @@ function App() {
   return (
     <WorkspaceShell
       token={token} files={files} documentId={documentId}
-      onSelectDocument={selectDocument} onUpload={handleUpload}
+      onSelectDocument={selectDocument} onUpload={uploads.add} uploads={uploads} onRename={renameDocument} onDelete={deleteDocument}
       onLogout={handleLogout} question={question} onQuestionChange={text => chat.setDraft(documentId, text)}
       onAsk={handleAsk} turns={chat.conversations[documentId] || []}
       generating={Boolean(documentId) && chat.activeDocument === documentId} onStop={chat.stop}
       onRetry={turn => chat.send(documentId, turn.question, turn.id)}
-      onClear={() => chat.clear(documentId)} storageWarning={chat.storageWarning} message={message} loading={loading}
+      onClear={() => chat.clear(documentId)} storageWarning={chat.storageWarning} message={message} loading={false}
     />
   )
 }

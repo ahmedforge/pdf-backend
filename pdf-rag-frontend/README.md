@@ -95,4 +95,45 @@ At http://localhost:5173, upload a multi-page text PDF, ask a question, click a 
 
 Tests cover one-byte SSE boundaries, server error events, missing done, cancellation, citation mapping/deduplication, old/new localStorage records and text normalization. Browser verification uses a local test service and a 1,002-page synthetic PDF to check bounded rendering, physical pages 7/999/1002, text-layer highlighting, page pulse fallback, error/retry and mobile navigation.
 
-The known Azure URL did not advertise the Step 1 `format=sse` parameter in its OpenAPI schema during this phase's check. Use an SSE-enabled backend URL before deploying this frontend; backend deployment/configuration was not changed here.
+The Azure backend now advertises the structured SSE contract and the deployed frontend uses it. The production frontend is hosted at https://white-grass-09deb0b00.1.azurestaticapps.net.
+
+### Citation storage and streaming safety
+
+Saved source metadata contains only `chunk_index`, `page`, `similarity`, and a
+maximum 300-character `text` snippet. Citation metadata has a shared 64 KiB budget
+per account; oldest messages lose their sources first, while question/answer text
+is retained. If browser storage reports a quota error, source metadata is removed
+from this account's stored histories in oldest-first order and the save is retried
+once. If messages still do not fit, chat continues in memory and shows a storage
+warning. Corrupt records restore as an empty history for that PDF. Other accounts,
+auth tokens, and theme preferences are not evicted.
+
+Chat requires the structured SSE endpoint and never falls back to plain-text
+streaming. HTTP 404/422, a non-SSE content type, missing sources/done events, and
+server error events enter the existing error/Retry flow. Sources must arrive
+within 30 seconds after the response starts, meaningful events must arrive at
+least every 30 seconds, and streams have a 180-second total limit. Keep-alive
+comments do not extend these deadlines. Error events fail immediately, even if
+the server never sends `done`.
+
+Run `npm run test`, `npm run lint`, and `npm run build` to check the quota recovery,
+corrupt/blocked storage, fragmented SSE, incompatible responses, and deadlines.
+
+## Phase 4A upload and document management
+
+XHR uploads report real bytes sent, then Processing until the synchronous API
+response. Multiple files run one at a time. Cancellation is offered only while
+Uploading; Processing remains visible. Network/timeout failures after sending
+are reconciled with GET /files. A 409 caused by a browser's automatic retry is
+also reconciled against the pre-upload IDs; normal duplicate errors remain 409.
+
+The sidebar uses display_name, with inline rename/rollback and confirmed delete.
+Deleting removes the document's local history and memory draft and stops its chat.
+Drafts are memory-only; there is no separate saved draft record. Upload state is
+separate from login/chat, and new uploads preserve the current document selection.
+Queues are isolated to the active account.
+
+Tests cover upload validation, string/array error details, queue transitions,
+XHR progress/abort and response reconciliation. Local fault injection forwards to
+the real backend and tests dropped responses, throttling and rename errors. No
+production endpoint is stubbed. Physical phone verification remains pending.

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react'
 import { apiRequest } from '@/api'
-import { historyScope, loadHistories, saveHistories, STORAGE_WARNING } from '@/lib/chat-storage'
-import { readCitationStream } from '@/lib/sse-stream'
+import { historyScope, loadHistories, saveHistories, removeHistory, STORAGE_WARNING } from '@/lib/chat-storage'
+import { requestCitationStream } from '@/lib/sse-stream'
 import { chatReducer } from '@/lib/chat-state'
 
 export function useDocumentChat(token) {
@@ -65,7 +65,7 @@ export function useDocumentChat(token) {
     const current = { documentId, id: crypto.randomUUID(), controller: new AbortController() }
     request.current = current
     setActiveDocument(documentId)
-    const start = { type: 'start', documentId, id: current.id, question: question.trim(), retryId }
+    const start = { type: 'start', documentId, id: current.id, question: question.trim(), retryId, createdAt: Date.now() }
     dispatch(start)
     try { setStorageWarning(saveHistories(localStorage, scope, chatReducer(conversations, start))) }
     catch { setStorageWarning(STORAGE_WARNING) }
@@ -74,13 +74,7 @@ export function useDocumentChat(token) {
       if (request.current === current) dispatch({ type: 'update', documentId, id: current.id, update: value })
     }
     try {
-      const response = await apiRequest(`/files/${documentId}/ask/stream?format=sse`, {
-        method: 'POST', signal: current.controller.signal,
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', Accept: 'text/event-stream' },
-        body: JSON.stringify({ question: question.trim(), top_k: 3 }),
-      })
-      if (!response.headers.get('content-type')?.includes('text/event-stream')) throw new Error('The server does not support citation streaming yet. Please retry after deployment.')
-      await readCitationStream(response.body, update, current.controller.signal)
+      await requestCitationStream(apiRequest, documentId, token, question.trim(), update, current.controller.signal)
       update({ status: 'complete' })
     } catch (error) {
       update({ status: error.name === 'AbortError' ? 'stopped' : 'error', error: error.name === 'AbortError' ? '' : error.message })
@@ -93,6 +87,13 @@ export function useDocumentChat(token) {
   }
 
   return { conversations, drafts, activeDocument, storageWarning: readWarning || storageWarning, send, stop, reset,
+    remove: id => {
+      if (request.current?.documentId === id) stop()
+      dispatch({ type: 'remove', documentId: id })
+      setDrafts(old => { const next = { ...old }; delete next[id]; return next })
+      try { setStorageWarning(removeHistory(localStorage, scope, id)) }
+      catch { setStorageWarning(STORAGE_WARNING) }
+    },
     clear: id => {
       stop()
       dispatch({ type: 'clear', documentId: id })

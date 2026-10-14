@@ -32,3 +32,15 @@ test('localStorage preserves sources without changing old source-less messages',
   assert.equal(saved[1].sources[0].page, 7)
   assert.equal(saved[1].sources[2].page, null)
 })
+
+test('full-width Chunk markers and non-breaking spaces still require a matching source', () => {
+  const text = 'See 【Chunk\u00a027】 and [Chunk 25] and 【Chunk 999】.'
+  assert.deepEqual(citedSources(text, sources).map(s => s.chunk_index), [27, 25])
+  const tree = { type: 'root', children: [{ type: 'text', value: text }] }
+  citationPlugin({ sources })(tree)
+  assert.ok(tree.children.some(n => n.url === 'citation:27'))
+  assert.ok(tree.children.some(n => n.type === 'text' && n.value.includes('【Chunk 999】')))
+  const legacy = { type: 'root', children: [{ type: 'text', value: text }] }
+  citationPlugin()(legacy)
+  assert.equal(legacy.children[0].value, text)
+})

@@ -195,7 +195,7 @@ export function PdfViewer({ documentId, token, filename, currentPage, onPageChan
     return () => { active = false; controller.abort(); if (url) URL.revokeObjectURL(url) }
   }, [documentId, token, attempt])
   const file = useMemo(() => result?.url || null, [result])
-  if (!documentId) return <div className="flex h-full flex-col items-center justify-center gap-3 bg-muted/40 text-muted-foreground"><FileText className="size-10 stroke-1" /><p className="text-sm">Your PDF will appear here.</p></div>
+  if (!documentId) return <div className="flex h-full flex-col items-center justify-center gap-3 bg-muted/40 text-muted-foreground"><FileText className="size-10 stroke-1" /><p className="text-sm font-medium">Your next insight starts here.</p><p className="max-w-xs px-4 text-center text-xs">Upload a PDF to read it alongside your conversation.</p></div>
   if (result?.id !== documentId || result?.token !== token || result?.attempt !== attempt) return <p role="status" className="p-6 text-sm">Loading PDF…</p>
   if (result.error) return <div role="alert" className="p-6 text-sm"><p>Could not download PDF: {result.error}</p><Button variant="outline" size="sm" className="mt-3" onClick={() => setAttempt(value => value + 1)}>Retry PDF</Button></div>
   return <LoadedPdf key={`${documentId}:${attempt}`} file={file} filename={filename} currentPage={currentPage} onPageChange={onPageChange} navigation={navigation} />

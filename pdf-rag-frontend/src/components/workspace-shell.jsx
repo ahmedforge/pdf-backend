@@ -1,10 +1,12 @@
 import { lazy, Suspense, useCallback, useRef, useState, useSyncExternalStore } from "react"
-import { FileText, LogOut, PanelLeftClose, PanelLeftOpen, Upload, MessageSquare } from "lucide-react"
+import { LogOut, PanelLeftClose, PanelLeftOpen, Upload, MessageSquare } from "lucide-react"
 const PdfViewer = lazy(() => import("@/components/pdf-viewer").then(module => ({ default: module.PdfViewer })))
 import { Button } from "@/components/ui/button"
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ChatPanel } from "@/components/chat-panel"
+import { UploadList } from "@/components/upload-list"
+import { DocumentItem } from "@/components/document-item"
 import { ThemeToggle } from "@/components/theme-toggle"
 
 function subscribeMobile(callback) {
@@ -16,12 +18,11 @@ const getMobileSnapshot = () => window.matchMedia("(max-width: 767px)").matches
 
 const suggestions = ["Summarize this document", "What are the key takeaways?", "Explain the main ideas simply"]
 
-export function WorkspaceShell({ token, files, documentId, onSelectDocument, onUpload, onLogout, question, onQuestionChange, onAsk, turns, generating, onStop, onRetry, onClear, storageWarning, message, loading }) {
+export function WorkspaceShell({ token, files, documentId, onSelectDocument, onUpload, uploads, onRename, onDelete, onLogout, question, onQuestionChange, onAsk, turns, generating, onStop, onRetry, onClear, storageWarning, message, loading }) {
   const mobile = useSyncExternalStore(subscribeMobile, getMobileSnapshot, () => false)
   const [collapsed, setCollapsed] = useState(getMobileSnapshot)
   const [mobileTab, setMobileTab] = useState("chat")
   const [dragging, setDragging] = useState(false)
-  const [uploadError, setUploadError] = useState("")
   const [pages, setPages] = useState({})
   const [navigation, setNavigation] = useState(null)
   const currentPage = pages[documentId] || 1
@@ -36,18 +37,11 @@ export function WorkspaceShell({ token, files, documentId, onSelectDocument, onU
   const input = useRef(null)
   const selected = files.find(file => file.id === documentId)
 
-  function upload(file) {
-    if (!file || loading) return
-    if (!/\.pdf$/i.test(file.name) || (file.type && file.type !== "application/pdf")) {
-      setUploadError("Choose a PDF file.")
-      return
-    }
-    if (file.size > 10 * 1024 * 1024) {
-      setUploadError("Choose a PDF smaller than 10 MB.")
-      return
-    }
-    setUploadError("")
-    onUpload(file)
+  function upload(files) { if (files?.length) { onUpload(files); setCollapsed(false) } }
+  async function deleteDocument(id) {
+    await onDelete(id)
+    setPages(old => { const next = { ...old }; delete next[id]; return next })
+    setNavigation(old => old?.documentId === id ? null : old)
   }
 
   const preview = <Suspense fallback={<p role="status" className="p-6 text-sm">Loading PDF viewer…</p>}><PdfViewer key={documentId || 'empty'} documentId={documentId} token={token} filename={selected?.filename}
@@ -55,22 +49,22 @@ export function WorkspaceShell({ token, files, documentId, onSelectDocument, onU
   const chat = (
     <ChatPanel key={documentId || 'empty'} documentId={documentId} turns={turns} question={question}
       onQuestionChange={onQuestionChange} onAsk={onAsk} onRetry={onRetry} onStop={onStop}
-      generating={generating} loading={loading} message={uploadError || message} onClear={onClear} storageWarning={storageWarning} currentPage={currentPage} onCitation={cite}>
+      generating={generating} loading={loading} message={message} onClear={onClear} storageWarning={storageWarning} currentPage={currentPage} onCitation={cite}>
             <div className="fade-in flex min-h-64 flex-col items-center justify-center gap-4 text-center">
               <div className="rounded-xl border bg-card p-3 shadow-xs"><MessageSquare className="size-5 text-primary" aria-hidden="true" /></div>
-              <h2 className="m-0 text-xl font-medium">A little clarity, one question at a time.</h2>
-              <p className="max-w-sm text-sm text-muted-foreground">{documentId ? "Ask about your document or start with a suggestion." : "Upload a PDF to explore its ideas."}</p>
+              <h2 className="m-0 text-xl font-medium">{documentId ? "A little clarity, one question at a time." : "Your next insight starts here."}</h2>
+              <p className="max-w-sm text-sm text-muted-foreground">{documentId ? "Ask about your document or start with a suggestion." : "Drop your PDFs below and explore them, one question at a time."}</p>
               {!documentId ? (
                 <div className={`w-full max-w-sm rounded-xl border border-dashed p-7 ${dragging ? "bg-accent" : "bg-card"}`}
                   onDragOver={event => { event.preventDefault(); setDragging(true) }}
                   onDragLeave={() => setDragging(false)}
-                  onDrop={event => { event.preventDefault(); setDragging(false); upload(event.dataTransfer.files[0]) }}>
+                  onDrop={event => { event.preventDefault(); setDragging(false); upload(event.dataTransfer.files) }}>
                   <Upload className="mx-auto mb-3 size-5 text-primary" aria-hidden="true" />
-                  <Button variant="outline" disabled={loading || generating} onClick={() => input.current?.click()}>Choose a PDF</Button>
-                  <p className="mt-3 text-xs text-muted-foreground">Or drop it here · PDF up to 10 MB</p>
+                  <Button variant="outline"  onClick={() => input.current?.click()}>Choose PDFs</Button>
+                  <p className="mt-3 text-xs text-muted-foreground">Or drop it here · PDF · up to 10 MiB each</p>
                 </div>
               ) : (
-                <div className="flex flex-wrap justify-center gap-2">{suggestions.map(text => <Button key={text} variant="outline" className="h-auto whitespace-normal rounded-xl py-2" disabled={loading} onClick={() => onQuestionChange(text)}>{text}</Button>)}</div>
+                <div className="flex flex-wrap justify-center gap-2">{suggestions.map(text => <Button key={text} variant="outline" className="h-auto whitespace-normal rounded-xl py-2"  onClick={() => onQuestionChange(text)}>{text}</Button>)}</div>
               )}
             </div>
     </ChatPanel>
@@ -87,15 +81,16 @@ export function WorkspaceShell({ token, files, documentId, onSelectDocument, onU
       </header>
       <div className="relative flex min-h-0 flex-1">
         {!collapsed && <aside id="document-sidebar" aria-label="Documents" className="absolute inset-y-0 left-0 z-20 flex w-64 shrink-0 flex-col border-r bg-card shadow-sm md:relative md:shadow-none">
-          <div className="p-4"><Button className="w-full rounded-xl" disabled={loading || generating} onClick={() => input.current?.click()}><Upload />Upload PDF</Button></div>
+          <div className="p-4"><Button className="w-full rounded-xl"  onClick={() => input.current?.click()}><Upload />Upload PDF</Button></div>
           <div className="px-4 pb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">Documents</div>
           <nav aria-label="Select a document" className="flex-1 space-y-1 overflow-y-auto px-2">{files.length ? files.map(file => (
-            <Button key={file.id} variant="ghost" className={`h-auto w-full justify-start rounded-xl px-3 py-3 text-left ${file.id === documentId ? "bg-accent text-accent-foreground" : ""}`} aria-current={file.id === documentId ? "true" : undefined} disabled={loading} title={file.filename} onClick={() => { setNavigation(null); onSelectDocument(file.id); if (window.matchMedia("(max-width: 767px)").matches) setCollapsed(true) }}><FileText className="size-4 shrink-0" /><span className="truncate">{file.filename}</span></Button>
+            <DocumentItem key={file.id} file={file} selected={file.id === documentId} onRename={onRename} onDelete={deleteDocument} onSelect={() => { setNavigation(null); onSelectDocument(file.id); if (mobile) setCollapsed(true) }} />
           )) : <p className="px-3 py-4 text-sm text-muted-foreground">Your library starts here.</p>}</nav>
+          <UploadList uploads={uploads} />
           <div className="border-t p-3"><Button variant="ghost" className="w-full justify-start" onClick={onLogout}><LogOut />Log out</Button></div>
         </aside>}
         {!collapsed && <button className="absolute inset-y-0 right-0 left-64 z-10 rounded-none! bg-black/20! p-0! md:hidden" aria-label="Close document sidebar" onClick={() => setCollapsed(true)} />}
-        <input ref={input} className="hidden" type="file" accept="application/pdf,.pdf" aria-label="Upload PDF" onChange={event => { upload(event.target.files[0]); event.target.value = "" }} />
+        <input ref={input} className="hidden" type="file" multiple accept="application/pdf,.pdf" aria-label="Upload PDF" onChange={event => { upload(event.target.files); event.target.value = "" }} />
         <main className="min-w-0 flex-1" inert={mobile && !collapsed}>
           {!mobile ? <div className="h-full"><ResizablePanelGroup orientation="horizontal"><ResizablePanel id="pdf" defaultSize="45%" minSize="25%">{preview}</ResizablePanel><ResizableHandle withHandle aria-label="Resize PDF and chat panels" /><ResizablePanel id="chat" defaultSize="55%" minSize="30%">{chat}</ResizablePanel></ResizablePanelGroup></div> : <Tabs value={mobileTab} onValueChange={setMobileTab} className="flex h-full flex-col gap-0 md:hidden">
             <TabsList className="mx-4 my-3 grid w-auto grid-cols-2"><TabsTrigger value="chat">Chat</TabsTrigger><TabsTrigger value="pdf">PDF</TabsTrigger></TabsList>

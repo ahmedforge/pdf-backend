@@ -1,10 +1,11 @@
 export function chatReducer(state, action) {
   if (action.type === 'reset') return {}
   if (action.type === 'hydrate') return action.history
+  if (action.type === 'remove') { const next = { ...state }; delete next[action.documentId]; return next }
   if (action.type === 'clear') return { ...state, [action.documentId]: [] }
   const turns = state[action.documentId] || []
   if (action.type === 'start') {
-    const turn = { id: action.id, question: action.question, answer: '', status: 'streaming', error: '', sources: [] }
+    const turn = { id: action.id, question: action.question, createdAt: action.createdAt ?? 0, answer: '', status: 'streaming', error: '', sources: [] }
     return { ...state, [action.documentId]: action.retryId
       ? turns.map(old => old.id === action.retryId ? turn : old)
       : [...turns, turn] }

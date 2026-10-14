@@ -1,3 +1,7 @@
+// Some model answers use full-width brackets and non-breaking spaces.
+export const chunkMarkerPattern = () => /\[Chunk\s+(\d+)\]|【Chunk\s+(\d+)】/g
+export const markerChunkIndex = match => Number(match[1] ?? match[2])
+
 export function normalizeSources(value) {
   if (!Array.isArray(value)) return []
   const seen = new Set()
@@ -12,7 +16,7 @@ export function normalizeSources(value) {
 export function citedSources(answer, sources) {
   const byIndex = new Map(normalizeSources(sources).map(source => [source.chunk_index, source]))
   const seen = new Set()
-  return [...answer.matchAll(/\[Chunk (\d+)\]/g)].map(match => Number(match[1]))
+  return [...answer.matchAll(chunkMarkerPattern())].map(markerChunkIndex)
     .filter(index => byIndex.has(index) && !seen.has(index) && seen.add(index)).map(index => byIndex.get(index))
 }
 
