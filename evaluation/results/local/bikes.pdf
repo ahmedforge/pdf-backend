@@ -1,0 +1,72 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Count 3 /Kids [4 0 R 6 0 R 8 0 R] >>
+endobj
+3 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+4 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents 5 0 R >>
+endobj
+5 0 obj
+<< /Length 242 >>
+stream
+BT /F1 12 Tf 50 760 Td 18 TL
+(Synthetic Juniper Bicycle Fleet Manual) Tj T*
+(Page 1: Fleet) Tj T*
+() Tj T*
+(The Juniper fleet contains 48 bicycles. All fleet bicycles use 26 inch wheels. The) Tj T*
+(maintenance manager is Omar Vale.) Tj T*
+ET
+endstream
+endobj
+6 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents 7 0 R >>
+endobj
+7 0 obj
+<< /Length 253 >>
+stream
+BT /F1 12 Tf 50 760 Td 18 TL
+(Synthetic Juniper Bicycle Fleet Manual) Tj T*
+(Page 2: Maintenance) Tj T*
+() Tj T*
+(Bicycle tyre pressure should be 55 PSI. Chains are lubricated every 150 kilometres.) Tj T*
+(Brake inspections occur every Friday.) Tj T*
+ET
+endstream
+endobj
+8 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents 9 0 R >>
+endobj
+9 0 obj
+<< /Length 257 >>
+stream
+BT /F1 12 Tf 50 760 Td 18 TL
+(Synthetic Juniper Bicycle Fleet Manual) Tj T*
+(Page 3: Checkout) Tj T*
+() Tj T*
+(Bicycles may be borrowed for a maximum of four hours. The return station closes at) Tj T*
+(18:00. The replacement deposit is 80 credits.) Tj T*
+ET
+endstream
+endobj
+xref
+0 10
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000127 00000 n 
+0000000197 00000 n 
+0000000323 00000 n 
+0000000616 00000 n 
+0000000742 00000 n 
+0000001046 00000 n 
+0000001172 00000 n 
+trailer
+<< /Size 10 /Root 1 0 R >>
+startxref
+1480
+%%EOF

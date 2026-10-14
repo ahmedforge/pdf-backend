@@ -1,0 +1,72 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Count 3 /Kids [4 0 R 6 0 R 8 0 R] >>
+endobj
+3 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+4 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents 5 0 R >>
+endobj
+5 0 obj
+<< /Length 236 >>
+stream
+BT /F1 12 Tf 50 760 Td 18 TL
+(Synthetic Cedar Observatory Handbook) Tj T*
+(Page 1: Visits) Tj T*
+() Tj T*
+(Cedar Observatory public tours start at 19:30. Tour admission costs 12 credits.) Tj T*
+(Reservations close on Thursday.) Tj T*
+ET
+endstream
+endobj
+6 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents 7 0 R >>
+endobj
+7 0 obj
+<< /Length 250 >>
+stream
+BT /F1 12 Tf 50 760 Td 18 TL
+(Synthetic Cedar Observatory Handbook) Tj T*
+(Page 2: Equipment) Tj T*
+() Tj T*
+(The primary telescope aperture is 240 millimetres. The telescope custodian is Mira) Tj T*
+(Chen. Calibration occurs every Tuesday.) Tj T*
+ET
+endstream
+endobj
+8 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents 9 0 R >>
+endobj
+9 0 obj
+<< /Length 259 >>
+stream
+BT /F1 12 Tf 50 760 Td 18 TL
+(Synthetic Cedar Observatory Handbook) Tj T*
+(Page 3: Weather) Tj T*
+() Tj T*
+(Tours are cancelled when wind speed exceeds 35 kilometres per hour. Cancelled) Tj T*
+(reservations receive refunds within five business days.) Tj T*
+ET
+endstream
+endobj
+xref
+0 10
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000127 00000 n 
+0000000197 00000 n 
+0000000323 00000 n 
+0000000610 00000 n 
+0000000736 00000 n 
+0000001037 00000 n 
+0000001163 00000 n 
+trailer
+<< /Size 10 /Root 1 0 R >>
+startxref
+1473
+%%EOF

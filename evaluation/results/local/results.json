@@ -1,0 +1,865 @@
+[
+  {
+    "document": "observatory",
+    "question": "When do public tours start?",
+    "expected_terms": [
+      "19:30"
+    ],
+    "expected_page": 1,
+    "answerable": true,
+    "answer": "Public tours start at 19:30. [Chunk 0]",
+    "sources": [
+      {
+        "chunk_index": 0,
+        "page": 1,
+        "text": "Synthetic Cedar Observatory Handbook\nPage 1: Visits\nCedar Observatory public tours start at 19:30. Tour admission costs 12 credits.\nReservations close on Thursday.",
+        "similarity": 0.561,
+        "preview": "Synthetic Cedar Observatory Handbook\nPage 1: Visits\nCedar Observatory public tours start at 19:30. Tour admission costs 12 credits.\nReservations close on Thursday."
+      }
+    ],
+    "complete": true,
+    "error": null,
+    "first_token_seconds": 0.733113863003382,
+    "total_seconds": 0.7451490940002259,
+    "answer_match": true,
+    "citation_markers": [
+      0
+    ],
+    "matched_markers": [
+      0
+    ],
+    "supported_markers": [
+      0
+    ],
+    "citation_hit": true
+  },
+  {
+    "document": "observatory",
+    "question": "How much does tour admission cost?",
+    "expected_terms": [
+      "12"
+    ],
+    "expected_page": 1,
+    "answerable": true,
+    "answer": "Tour admission costs 12 credits. [Chunk 0]",
+    "sources": [
+      {
+        "chunk_index": 0,
+        "page": 1,
+        "text": "Synthetic Cedar Observatory Handbook\nPage 1: Visits\nCedar Observatory public tours start at 19:30. Tour admission costs 12 credits.\nReservations close on Thursday.",
+        "similarity": 0.381,
+        "preview": "Synthetic Cedar Observatory Handbook\nPage 1: Visits\nCedar Observatory public tours start at 19:30. Tour admission costs 12 credits.\nReservations close on Thursday."
+      }
+    ],
+    "complete": true,
+    "error": null,
+    "first_token_seconds": 1.7355169509974075,
+    "total_seconds": 1.741807799997332,
+    "answer_match": true,
+    "citation_markers": [
+      0
+    ],
+    "matched_markers": [
+      0
+    ],
+    "supported_markers": [
+      0
+    ],
+    "citation_hit": true
+  },
+  {
+    "document": "observatory",
+    "question": "What is the primary telescope aperture?",
+    "expected_terms": [
+      "240"
+    ],
+    "expected_page": 2,
+    "answerable": true,
+    "answer": "The primary telescope aperture is 240\u202fmillimetres. [Chunk 1]",
+    "sources": [
+      {
+        "chunk_index": 1,
+        "page": 2,
+        "text": "Synthetic Cedar Observatory Handbook\nPage 2: Equipment\nThe primary telescope aperture is 240 millimetres. The telescope custodian is Mira\nChen. Calibration occurs every Tuesday.",
+        "similarity": 0.7157,
+        "preview": "Synthetic Cedar Observatory Handbook\nPage 2: Equipment\nThe primary telescope aperture is 240 millimetres. The telescope custodian is Mira\nChen. Calibration occurs every Tuesday."
+      }
+    ],
+    "complete": true,
+    "error": null,
+    "first_token_seconds": 0.8801745210002991,
+    "total_seconds": 1.093040834995918,
+    "answer_match": true,
+    "citation_markers": [
+      1
+    ],
+    "matched_markers": [
+      1
+    ],
+    "supported_markers": [
+      1
+    ],
+    "citation_hit": true
+  },
+  {
+    "document": "observatory",
+    "question": "Who is the telescope custodian?",
+    "expected_terms": [
+      "Mira Chen"
+    ],
+    "expected_page": 2,
+    "answerable": true,
+    "answer": "Mira Chen [Chunk\u00a01]",
+    "sources": [
+      {
+        "chunk_index": 1,
+        "page": 2,
+        "text": "Synthetic Cedar Observatory Handbook\nPage 2: Equipment\nThe primary telescope aperture is 240 millimetres. The telescope custodian is Mira\nChen. Calibration occurs every Tuesday.",
+        "similarity": 0.4947,
+        "preview": "Synthetic Cedar Observatory Handbook\nPage 2: Equipment\nThe primary telescope aperture is 240 millimetres. The telescope custodian is Mira\nChen. Calibration occurs every Tuesday."
+      }
+    ],
+    "complete": true,
+    "error": null,
+    "first_token_seconds": 1.7814737750013592,
+    "total_seconds": 1.7973638210023637,
+    "answer_match": true,
+    "citation_markers": [
+      1
+    ],
+    "matched_markers": [
+      1
+    ],
+    "supported_markers": [
+      1
+    ],
+    "citation_hit": true
+  },
+  {
+    "document": "observatory",
+    "question": "At what wind speed are tours cancelled?",
+    "expected_terms": [
+      "35"
+    ],
+    "expected_page": 3,
+    "answerable": true,
+    "answer": "Tours are cancelled when the wind speed exceeds 35 kilometres per hour. [Chunk 2]",
+    "sources": [
+      {
+        "chunk_index": 2,
+        "page": 3,
+        "text": "Synthetic Cedar Observatory Handbook\nPage 3: Weather\nTours are cancelled when wind speed exceeds 35 kilometres per hour. Cancelled\nreservations receive refunds within five business days.",
+        "similarity": 0.6908,
+        "preview": "Synthetic Cedar Observatory Handbook\nPage 3: Weather\nTours are cancelled when wind speed exceeds 35 kilometres per hour. Cancelled\nreservations receive refunds within five business days."
+      },
+      {
+        "chunk_index": 0,
+        "page": 1,
+        "text": "Synthetic Cedar Observatory Handbook\nPage 1: Visits\nCedar Observatory public tours start at 19:30. Tour admission costs 12 credits.\nReservations close on Thursday.",
+        "similarity": 0.3811,
+        "preview": "Synthetic Cedar Observatory Handbook\nPage 1: Visits\nCedar Observatory public tours start at 19:30. Tour admission costs 12 credits.\nReservations close on Thursday."
+      }
+    ],
+    "complete": true,
+    "error": null,
+    "first_token_seconds": 0.9940248179991613,
+    "total_seconds": 1.3951905700014322,
+    "answer_match": true,
+    "citation_markers": [
+      2
+    ],
+    "matched_markers": [
+      2
+    ],
+    "supported_markers": [
+      2
+    ],
+    "citation_hit": true
+  },
+  {
+    "document": "observatory",
+    "question": "How long do refunds for cancelled reservations take?",
+    "expected_terms": [
+      "five"
+    ],
+    "expected_page": 3,
+    "answerable": true,
+    "answer": "Refunds for cancelled reservations are processed within five business days. [Chunk 2]",
+    "sources": [
+      {
+        "chunk_index": 2,
+        "page": 3,
+        "text": "Synthetic Cedar Observatory Handbook\nPage 3: Weather\nTours are cancelled when wind speed exceeds 35 kilometres per hour. Cancelled\nreservations receive refunds within five business days.",
+        "similarity": 0.3948,
+        "preview": "Synthetic Cedar Observatory Handbook\nPage 3: Weather\nTours are cancelled when wind speed exceeds 35 kilometres per hour. Cancelled\nreservations receive refunds within five business days."
+      }
+    ],
+    "complete": true,
+    "error": null,
+    "first_token_seconds": 1.4991793760054861,
+    "total_seconds": 1.5078567390009994,
+    "answer_match": true,
+    "citation_markers": [
+      2
+    ],
+    "matched_markers": [
+      2
+    ],
+    "supported_markers": [
+      2
+    ],
+    "citation_hit": true
+  },
+  {
+    "document": "observatory",
+    "question": "Who founded Cedar Observatory?",
+    "expected_terms": [],
+    "expected_page": null,
+    "answerable": false,
+    "answer": "I could not find the answer in the document.",
+    "sources": [
+      {
+        "chunk_index": 0,
+        "page": 1,
+        "text": "Synthetic Cedar Observatory Handbook\nPage 1: Visits\nCedar Observatory public tours start at 19:30. Tour admission costs 12 credits.\nReservations close on Thursday.",
+        "similarity": 0.5168,
+        "preview": "Synthetic Cedar Observatory Handbook\nPage 1: Visits\nCedar Observatory public tours start at 19:30. Tour admission costs 12 credits.\nReservations close on Thursday."
+      },
+      {
+        "chunk_index": 2,
+        "page": 3,
+        "text": "Synthetic Cedar Observatory Handbook\nPage 3: Weather\nTours are cancelled when wind speed exceeds 35 kilometres per hour. Cancelled\nreservations receive refunds within five business days.",
+        "similarity": 0.4283,
+        "preview": "Synthetic Cedar Observatory Handbook\nPage 3: Weather\nTours are cancelled when wind speed exceeds 35 kilometres per hour. Cancelled\nreservations receive refunds within five business days."
+      },
+      {
+        "chunk_index": 1,
+        "page": 2,
+        "text": "Synthetic Cedar Observatory Handbook\nPage 2: Equipment\nThe primary telescope aperture is 240 millimetres. The telescope custodian is Mira\nChen. Calibration occurs every Tuesday.",
+        "similarity": 0.4135,
+        "preview": "Synthetic Cedar Observatory Handbook\nPage 2: Equipment\nThe primary telescope aperture is 240 millimetres. The telescope custodian is Mira\nChen. Calibration occurs every Tuesday."
+      }
+    ],
+    "complete": true,
+    "error": null,
+    "first_token_seconds": 0.7596354940033052,
+    "total_seconds": 0.7636994120039162,
+    "answer_match": true,
+    "citation_markers": [],
+    "matched_markers": [],
+    "supported_markers": [],
+    "citation_hit": null
+  },
+  {
+    "document": "observatory",
+    "question": "What is Cedar Observatory's street address?",
+    "expected_terms": [],
+    "expected_page": null,
+    "answerable": false,
+    "answer": "I could not find the answer in the document.",
+    "sources": [
+      {
+        "chunk_index": 0,
+        "page": 1,
+        "text": "Synthetic Cedar Observatory Handbook\nPage 1: Visits\nCedar Observatory public tours start at 19:30. Tour admission costs 12 credits.\nReservations close on Thursday.",
+        "similarity": 0.5271,
+        "preview": "Synthetic Cedar Observatory Handbook\nPage 1: Visits\nCedar Observatory public tours start at 19:30. Tour admission costs 12 credits.\nReservations close on Thursday."
+      },
+      {
+        "chunk_index": 2,
+        "page": 3,
+        "text": "Synthetic Cedar Observatory Handbook\nPage 3: Weather\nTours are cancelled when wind speed exceeds 35 kilometres per hour. Cancelled\nreservations receive refunds within five business days.",
+        "similarity": 0.4354,
+        "preview": "Synthetic Cedar Observatory Handbook\nPage 3: Weather\nTours are cancelled when wind speed exceeds 35 kilometres per hour. Cancelled\nreservations receive refunds within five business days."
+      },
+      {
+        "chunk_index": 1,
+        "page": 2,
+        "text": "Synthetic Cedar Observatory Handbook\nPage 2: Equipment\nThe primary telescope aperture is 240 millimetres. The telescope custodian is Mira\nChen. Calibration occurs every Tuesday.",
+        "similarity": 0.3842,
+        "preview": "Synthetic Cedar Observatory Handbook\nPage 2: Equipment\nThe primary telescope aperture is 240 millimetres. The telescope custodian is Mira\nChen. Calibration occurs every Tuesday."
+      }
+    ],
+    "complete": true,
+    "error": null,
+    "first_token_seconds": 0.6676321109989658,
+    "total_seconds": 0.6831518019971554,
+    "answer_match": true,
+    "citation_markers": [],
+    "matched_markers": [],
+    "supported_markers": [],
+    "citation_hit": null
+  },
+  {
+    "document": "bikes",
+    "question": "How many bicycles are in the fleet?",
+    "expected_terms": [
+      "48"
+    ],
+    "expected_page": 1,
+    "answerable": true,
+    "answer": "There are 48 bicycles in the fleet. [Chunk 0]",
+    "sources": [
+      {
+        "chunk_index": 0,
+        "page": 1,
+        "text": "Synthetic Juniper Bicycle Fleet Manual\nPage 1: Fleet\nThe Juniper fleet contains 48 bicycles. All fleet bicycles use 26 inch wheels. The\nmaintenance manager is Omar Vale.",
+        "similarity": 0.7163,
+        "preview": "Synthetic Juniper Bicycle Fleet Manual\nPage 1: Fleet\nThe Juniper fleet contains 48 bicycles. All fleet bicycles use 26 inch wheels. The\nmaintenance manager is Omar Vale."
+      },
+      {
+        "chunk_index": 2,
+        "page": 3,
+        "text": "Synthetic Juniper Bicycle Fleet Manual\nPage 3: Checkout\nBicycles may be borrowed for a maximum of four hours. The return station closes at\n18:00. The replacement deposit is 80 credits.",
+        "similarity": 0.3291,
+        "preview": "Synthetic Juniper Bicycle Fleet Manual\nPage 3: Checkout\nBicycles may be borrowed for a maximum of four hours. The return station closes at\n18:00. The replacement deposit is 80 credits."
+      }
+    ],
+    "complete": true,
+    "error": null,
+    "first_token_seconds": 1.6733357129996875,
+    "total_seconds": 1.6835819429979892,
+    "answer_match": true,
+    "citation_markers": [
+      0
+    ],
+    "matched_markers": [
+      0
+    ],
+    "supported_markers": [
+      0
+    ],
+    "citation_hit": true
+  },
+  {
+    "document": "bikes",
+    "question": "Who is the maintenance manager?",
+    "expected_terms": [
+      "Omar Vale"
+    ],
+    "expected_page": 1,
+    "answerable": true,
+    "answer": "The maintenance manager is Omar Vale.\u202f[Chunk 0]",
+    "sources": [
+      {
+        "chunk_index": 0,
+        "page": 1,
+        "text": "Synthetic Juniper Bicycle Fleet Manual\nPage 1: Fleet\nThe Juniper fleet contains 48 bicycles. All fleet bicycles use 26 inch wheels. The\nmaintenance manager is Omar Vale.",
+        "similarity": 0.2299,
+        "preview": "Synthetic Juniper Bicycle Fleet Manual\nPage 1: Fleet\nThe Juniper fleet contains 48 bicycles. All fleet bicycles use 26 inch wheels. The\nmaintenance manager is Omar Vale."
+      }
+    ],
+    "complete": true,
+    "error": null,
+    "first_token_seconds": 1.205821361996641,
+    "total_seconds": 1.4540533809995395,
+    "answer_match": true,
+    "citation_markers": [
+      0
+    ],
+    "matched_markers": [
+      0
+    ],
+    "supported_markers": [
+      0
+    ],
+    "citation_hit": true
+  },
+  {
+    "document": "bikes",
+    "question": "What tyre pressure is specified?",
+    "expected_terms": [
+      "55"
+    ],
+    "expected_page": 2,
+    "answerable": true,
+    "answer": "The specified tyre pressure is **55\u202fPSI** [Chunk 1].",
+    "sources": [
+      {
+        "chunk_index": 1,
+        "page": 2,
+        "text": "Synthetic Juniper Bicycle Fleet Manual\nPage 2: Maintenance\nBicycle tyre pressure should be 55 PSI. Chains are lubricated every 150 kilometres.\nBrake inspections occur every Friday.",
+        "similarity": 0.6416,
+        "preview": "Synthetic Juniper Bicycle Fleet Manual\nPage 2: Maintenance\nBicycle tyre pressure should be 55 PSI. Chains are lubricated every 150 kilometres.\nBrake inspections occur every Friday."
+      }
+    ],
+    "complete": true,
+    "error": null,
+    "first_token_seconds": 0.6639916460044333,
+    "total_seconds": 0.6844721340021351,
+    "answer_match": true,
+    "citation_markers": [
+      1
+    ],
+    "matched_markers": [
+      1
+    ],
+    "supported_markers": [
+      1
+    ],
+    "citation_hit": true
+  },
+  {
+    "document": "bikes",
+    "question": "After how many kilometres are chains lubricated?",
+    "expected_terms": [
+      "150"
+    ],
+    "expected_page": 2,
+    "answerable": true,
+    "answer": "Chains are lubricated every 150 kilometres.\u202f[Chunk 1]",
+    "sources": [
+      {
+        "chunk_index": 1,
+        "page": 2,
+        "text": "Synthetic Juniper Bicycle Fleet Manual\nPage 2: Maintenance\nBicycle tyre pressure should be 55 PSI. Chains are lubricated every 150 kilometres.\nBrake inspections occur every Friday.",
+        "similarity": 0.4315,
+        "preview": "Synthetic Juniper Bicycle Fleet Manual\nPage 2: Maintenance\nBicycle tyre pressure should be 55 PSI. Chains are lubricated every 150 kilometres.\nBrake inspections occur every Friday."
+      }
+    ],
+    "complete": true,
+    "error": null,
+    "first_token_seconds": 1.2902444469946204,
+    "total_seconds": 1.707194481001352,
+    "answer_match": true,
+    "citation_markers": [
+      1
+    ],
+    "matched_markers": [
+      1
+    ],
+    "supported_markers": [
+      1
+    ],
+    "citation_hit": true
+  },
+  {
+    "document": "bikes",
+    "question": "What is the maximum borrowing period?",
+    "expected_terms": [
+      "four"
+    ],
+    "expected_page": 3,
+    "answerable": true,
+    "answer": "The maximum borrowing period is four hours. [Chunk 2]",
+    "sources": [
+      {
+        "chunk_index": 2,
+        "page": 3,
+        "text": "Synthetic Juniper Bicycle Fleet Manual\nPage 3: Checkout\nBicycles may be borrowed for a maximum of four hours. The return station closes at\n18:00. The replacement deposit is 80 credits.",
+        "similarity": 0.3589,
+        "preview": "Synthetic Juniper Bicycle Fleet Manual\nPage 3: Checkout\nBicycles may be borrowed for a maximum of four hours. The return station closes at\n18:00. The replacement deposit is 80 credits."
+      }
+    ],
+    "complete": true,
+    "error": null,
+    "first_token_seconds": 1.020895763002045,
+    "total_seconds": 1.022699895002006,
+    "answer_match": true,
+    "citation_markers": [
+      2
+    ],
+    "matched_markers": [
+      2
+    ],
+    "supported_markers": [
+      2
+    ],
+    "citation_hit": true
+  },
+  {
+    "document": "bikes",
+    "question": "When does the return station close?",
+    "expected_terms": [
+      "18:00"
+    ],
+    "expected_page": 3,
+    "answerable": true,
+    "answer": "The return station closes at 18:00. [Chunk 2]",
+    "sources": [
+      {
+        "chunk_index": 2,
+        "page": 3,
+        "text": "Synthetic Juniper Bicycle Fleet Manual\nPage 3: Checkout\nBicycles may be borrowed for a maximum of four hours. The return station closes at\n18:00. The replacement deposit is 80 credits.",
+        "similarity": 0.3946,
+        "preview": "Synthetic Juniper Bicycle Fleet Manual\nPage 3: Checkout\nBicycles may be borrowed for a maximum of four hours. The return station closes at\n18:00. The replacement deposit is 80 credits."
+      }
+    ],
+    "complete": true,
+    "error": null,
+    "first_token_seconds": 0.8893650290046935,
+    "total_seconds": 0.8970362410036614,
+    "answer_match": true,
+    "citation_markers": [
+      2
+    ],
+    "matched_markers": [
+      2
+    ],
+    "supported_markers": [
+      2
+    ],
+    "citation_hit": true
+  },
+  {
+    "document": "bikes",
+    "question": "What brand are the bicycles?",
+    "expected_terms": [],
+    "expected_page": null,
+    "answerable": false,
+    "answer": "The bicycles are Juniper. [Chunk 0]",
+    "sources": [
+      {
+        "chunk_index": 0,
+        "page": 1,
+        "text": "Synthetic Juniper Bicycle Fleet Manual\nPage 1: Fleet\nThe Juniper fleet contains 48 bicycles. All fleet bicycles use 26 inch wheels. The\nmaintenance manager is Omar Vale.",
+        "similarity": 0.4318,
+        "preview": "Synthetic Juniper Bicycle Fleet Manual\nPage 1: Fleet\nThe Juniper fleet contains 48 bicycles. All fleet bicycles use 26 inch wheels. The\nmaintenance manager is Omar Vale."
+      }
+    ],
+    "complete": true,
+    "error": null,
+    "first_token_seconds": 1.0561902419940452,
+    "total_seconds": 1.0719020789983915,
+    "answer_match": false,
+    "citation_markers": [
+      0
+    ],
+    "matched_markers": [
+      0
+    ],
+    "supported_markers": [],
+    "citation_hit": null
+  },
+  {
+    "document": "bikes",
+    "question": "What is the maintenance manager's telephone number?",
+    "expected_terms": [],
+    "expected_page": null,
+    "answerable": false,
+    "answer": "I could not find the answer in the document.",
+    "sources": [
+      {
+        "chunk_index": 0,
+        "page": 1,
+        "text": "Synthetic Juniper Bicycle Fleet Manual\nPage 1: Fleet\nThe Juniper fleet contains 48 bicycles. All fleet bicycles use 26 inch wheels. The\nmaintenance manager is Omar Vale.",
+        "similarity": 0.2134,
+        "preview": "Synthetic Juniper Bicycle Fleet Manual\nPage 1: Fleet\nThe Juniper fleet contains 48 bicycles. All fleet bicycles use 26 inch wheels. The\nmaintenance manager is Omar Vale."
+      }
+    ],
+    "complete": true,
+    "error": null,
+    "first_token_seconds": 0.8346070240004337,
+    "total_seconds": 0.8562627370047267,
+    "answer_match": true,
+    "citation_markers": [],
+    "matched_markers": [],
+    "supported_markers": [],
+    "citation_hit": null
+  },
+  {
+    "document": "library",
+    "question": "When does the library open on weekdays?",
+    "expected_terms": [
+      "09:15"
+    ],
+    "expected_page": 1,
+    "answerable": true,
+    "answer": "The library opens at **09:15** on weekdays. [Chunk 0]",
+    "sources": [
+      {
+        "chunk_index": 0,
+        "page": 1,
+        "text": "Synthetic Willow Library Service Guide\nPage 1: Opening\nWillow Library opens at 09:15 on weekdays. The library closes at 17:45. The service\ncoordinator is Elena Moss.",
+        "similarity": 0.5447,
+        "preview": "Synthetic Willow Library Service Guide\nPage 1: Opening\nWillow Library opens at 09:15 on weekdays. The library closes at 17:45. The service\ncoordinator is Elena Moss."
+      },
+      {
+        "chunk_index": 2,
+        "page": 3,
+        "text": "Synthetic Willow Library Service Guide\nPage 3: Study rooms\nStudy room reservations last 90 minutes. Rooms accommodate six people. Reservations\nmust be made at least two hours ahead.",
+        "similarity": 0.3319,
+        "preview": "Synthetic Willow Library Service Guide\nPage 3: Study rooms\nStudy room reservations last 90 minutes. Rooms accommodate six people. Reservations\nmust be made at least two hours ahead."
+      },
+      {
+        "chunk_index": 1,
+        "page": 2,
+        "text": "Synthetic Willow Library Service Guide\nPage 2: Loans\nMembers may borrow seven books at a time. The standard loan period is 21 days.\nOverdue charges are two credits per day.",
+        "similarity": 0.3224,
+        "preview": "Synthetic Willow Library Service Guide\nPage 2: Loans\nMembers may borrow seven books at a time. The standard loan period is 21 days.\nOverdue charges are two credits per day."
+      }
+    ],
+    "complete": true,
+    "error": null,
+    "first_token_seconds": 0.9278633180001634,
+    "total_seconds": 1.3440784479971626,
+    "answer_match": true,
+    "citation_markers": [
+      0
+    ],
+    "matched_markers": [
+      0
+    ],
+    "supported_markers": [
+      0
+    ],
+    "citation_hit": true
+  },
+  {
+    "document": "library",
+    "question": "Who is the service coordinator?",
+    "expected_terms": [
+      "Elena Moss"
+    ],
+    "expected_page": 1,
+    "answerable": true,
+    "answer": "Elena\u202fMoss. [Chunk 0]",
+    "sources": [
+      {
+        "chunk_index": 0,
+        "page": 1,
+        "text": "Synthetic Willow Library Service Guide\nPage 1: Opening\nWillow Library opens at 09:15 on weekdays. The library closes at 17:45. The service\ncoordinator is Elena Moss.",
+        "similarity": 0.0968,
+        "preview": "Synthetic Willow Library Service Guide\nPage 1: Opening\nWillow Library opens at 09:15 on weekdays. The library closes at 17:45. The service\ncoordinator is Elena Moss."
+      }
+    ],
+    "complete": true,
+    "error": null,
+    "first_token_seconds": 1.5967905239958782,
+    "total_seconds": 1.6075410220000776,
+    "answer_match": true,
+    "citation_markers": [
+      0
+    ],
+    "matched_markers": [
+      0
+    ],
+    "supported_markers": [
+      0
+    ],
+    "citation_hit": true
+  },
+  {
+    "document": "library",
+    "question": "How many books may a member borrow at once?",
+    "expected_terms": [
+      "seven"
+    ],
+    "expected_page": 2,
+    "answerable": true,
+    "answer": "Seven books at a time. [Chunk\u202f1]",
+    "sources": [
+      {
+        "chunk_index": 1,
+        "page": 2,
+        "text": "Synthetic Willow Library Service Guide\nPage 2: Loans\nMembers may borrow seven books at a time. The standard loan period is 21 days.\nOverdue charges are two credits per day.",
+        "similarity": 0.581,
+        "preview": "Synthetic Willow Library Service Guide\nPage 2: Loans\nMembers may borrow seven books at a time. The standard loan period is 21 days.\nOverdue charges are two credits per day."
+      }
+    ],
+    "complete": true,
+    "error": null,
+    "first_token_seconds": 1.1392030920032994,
+    "total_seconds": 1.1509068640007172,
+    "answer_match": true,
+    "citation_markers": [
+      1
+    ],
+    "matched_markers": [
+      1
+    ],
+    "supported_markers": [
+      1
+    ],
+    "citation_hit": true
+  },
+  {
+    "document": "library",
+    "question": "What is the standard loan period?",
+    "expected_terms": [
+      "21"
+    ],
+    "expected_page": 2,
+    "answerable": true,
+    "answer": "The standard loan period is 21 days. [Chunk\u202f1]",
+    "sources": [
+      {
+        "chunk_index": 1,
+        "page": 2,
+        "text": "Synthetic Willow Library Service Guide\nPage 2: Loans\nMembers may borrow seven books at a time. The standard loan period is 21 days.\nOverdue charges are two credits per day.",
+        "similarity": 0.5067,
+        "preview": "Synthetic Willow Library Service Guide\nPage 2: Loans\nMembers may borrow seven books at a time. The standard loan period is 21 days.\nOverdue charges are two credits per day."
+      }
+    ],
+    "complete": true,
+    "error": null,
+    "first_token_seconds": 1.4034030609982437,
+    "total_seconds": 1.7309759329946246,
+    "answer_match": true,
+    "citation_markers": [
+      1
+    ],
+    "matched_markers": [
+      1
+    ],
+    "supported_markers": [
+      1
+    ],
+    "citation_hit": true
+  },
+  {
+    "document": "library",
+    "question": "How long does a study room reservation last?",
+    "expected_terms": [
+      "90"
+    ],
+    "expected_page": 3,
+    "answerable": true,
+    "answer": "Study room reservations last 90 minutes. [Chunk 2]",
+    "sources": [
+      {
+        "chunk_index": 2,
+        "page": 3,
+        "text": "Synthetic Willow Library Service Guide\nPage 3: Study rooms\nStudy room reservations last 90 minutes. Rooms accommodate six people. Reservations\nmust be made at least two hours ahead.",
+        "similarity": 0.6991,
+        "preview": "Synthetic Willow Library Service Guide\nPage 3: Study rooms\nStudy room reservations last 90 minutes. Rooms accommodate six people. Reservations\nmust be made at least two hours ahead."
+      },
+      {
+        "chunk_index": 1,
+        "page": 2,
+        "text": "Synthetic Willow Library Service Guide\nPage 2: Loans\nMembers may borrow seven books at a time. The standard loan period is 21 days.\nOverdue charges are two credits per day.",
+        "similarity": 0.3388,
+        "preview": "Synthetic Willow Library Service Guide\nPage 2: Loans\nMembers may borrow seven books at a time. The standard loan period is 21 days.\nOverdue charges are two credits per day."
+      }
+    ],
+    "complete": true,
+    "error": null,
+    "first_token_seconds": 0.974001786998997,
+    "total_seconds": 0.9806357420020504,
+    "answer_match": true,
+    "citation_markers": [
+      2
+    ],
+    "matched_markers": [
+      2
+    ],
+    "supported_markers": [
+      2
+    ],
+    "citation_hit": true
+  },
+  {
+    "document": "library",
+    "question": "How many people fit in a study room?",
+    "expected_terms": [
+      "six"
+    ],
+    "expected_page": 3,
+    "answerable": true,
+    "answer": "Six people fit in a study room. [Chunk 2]",
+    "sources": [
+      {
+        "chunk_index": 2,
+        "page": 3,
+        "text": "Synthetic Willow Library Service Guide\nPage 3: Study rooms\nStudy room reservations last 90 minutes. Rooms accommodate six people. Reservations\nmust be made at least two hours ahead.",
+        "similarity": 0.4896,
+        "preview": "Synthetic Willow Library Service Guide\nPage 3: Study rooms\nStudy room reservations last 90 minutes. Rooms accommodate six people. Reservations\nmust be made at least two hours ahead."
+      }
+    ],
+    "complete": true,
+    "error": null,
+    "first_token_seconds": 1.6415101919992594,
+    "total_seconds": 1.6722431919988594,
+    "answer_match": true,
+    "citation_markers": [
+      2
+    ],
+    "matched_markers": [
+      2
+    ],
+    "supported_markers": [
+      2
+    ],
+    "citation_hit": true
+  },
+  {
+    "document": "library",
+    "question": "What year was Willow Library established?",
+    "expected_terms": [],
+    "expected_page": null,
+    "answerable": false,
+    "answer": "I could not find the answer in the document.",
+    "sources": [
+      {
+        "chunk_index": 0,
+        "page": 1,
+        "text": "Synthetic Willow Library Service Guide\nPage 1: Opening\nWillow Library opens at 09:15 on weekdays. The library closes at 17:45. The service\ncoordinator is Elena Moss.",
+        "similarity": 0.6092,
+        "preview": "Synthetic Willow Library Service Guide\nPage 1: Opening\nWillow Library opens at 09:15 on weekdays. The library closes at 17:45. The service\ncoordinator is Elena Moss."
+      },
+      {
+        "chunk_index": 1,
+        "page": 2,
+        "text": "Synthetic Willow Library Service Guide\nPage 2: Loans\nMembers may borrow seven books at a time. The standard loan period is 21 days.\nOverdue charges are two credits per day.",
+        "similarity": 0.4818,
+        "preview": "Synthetic Willow Library Service Guide\nPage 2: Loans\nMembers may borrow seven books at a time. The standard loan period is 21 days.\nOverdue charges are two credits per day."
+      },
+      {
+        "chunk_index": 2,
+        "page": 3,
+        "text": "Synthetic Willow Library Service Guide\nPage 3: Study rooms\nStudy room reservations last 90 minutes. Rooms accommodate six people. Reservations\nmust be made at least two hours ahead.",
+        "similarity": 0.4638,
+        "preview": "Synthetic Willow Library Service Guide\nPage 3: Study rooms\nStudy room reservations last 90 minutes. Rooms accommodate six people. Reservations\nmust be made at least two hours ahead."
+      }
+    ],
+    "complete": true,
+    "error": null,
+    "first_token_seconds": 2.031606147000275,
+    "total_seconds": 2.114776446003816,
+    "answer_match": true,
+    "citation_markers": [],
+    "matched_markers": [],
+    "supported_markers": [],
+    "citation_hit": null
+  },
+  {
+    "document": "library",
+    "question": "How many employees work at Willow Library?",
+    "expected_terms": [],
+    "expected_page": null,
+    "answerable": false,
+    "answer": "I could not find the answer in the document.",
+    "sources": [
+      {
+        "chunk_index": 0,
+        "page": 1,
+        "text": "Synthetic Willow Library Service Guide\nPage 1: Opening\nWillow Library opens at 09:15 on weekdays. The library closes at 17:45. The service\ncoordinator is Elena Moss.",
+        "similarity": 0.5086,
+        "preview": "Synthetic Willow Library Service Guide\nPage 1: Opening\nWillow Library opens at 09:15 on weekdays. The library closes at 17:45. The service\ncoordinator is Elena Moss."
+      },
+      {
+        "chunk_index": 2,
+        "page": 3,
+        "text": "Synthetic Willow Library Service Guide\nPage 3: Study rooms\nStudy room reservations last 90 minutes. Rooms accommodate six people. Reservations\nmust be made at least two hours ahead.",
+        "similarity": 0.4721,
+        "preview": "Synthetic Willow Library Service Guide\nPage 3: Study rooms\nStudy room reservations last 90 minutes. Rooms accommodate six people. Reservations\nmust be made at least two hours ahead."
+      },
+      {
+        "chunk_index": 1,
+        "page": 2,
+        "text": "Synthetic Willow Library Service Guide\nPage 2: Loans\nMembers may borrow seven books at a time. The standard loan period is 21 days.\nOverdue charges are two credits per day.",
+        "similarity": 0.3829,
+        "preview": "Synthetic Willow Library Service Guide\nPage 2: Loans\nMembers may borrow seven books at a time. The standard loan period is 21 days.\nOverdue charges are two credits per day."
+      }
+    ],
+    "complete": true,
+    "error": null,
+    "first_token_seconds": 1.0278995300031966,
+    "total_seconds": 1.0295536570047261,
+    "answer_match": true,
+    "citation_markers": [],
+    "matched_markers": [],
+    "supported_markers": [],
+    "citation_hit": null
+  }
+]

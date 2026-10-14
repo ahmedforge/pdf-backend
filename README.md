@@ -74,7 +74,7 @@ npm run lint
 npm run build
 ```
 
-The backend suite passed 106 tests. The release review separately exercised real
+The backend suite now passes 110 tests (including four evaluation tests). The release review separately exercised real
 PostgreSQL upgrade/downgrade/upgrade, duplicate-name refusal, and recovery locks.
 Production checks covered fresh accounts, owner isolation, upload/download,
 rename/delete, streaming sources, and PDF persistence across an Express rolling
@@ -91,3 +91,35 @@ Uploads allow 10 MiB (10485760 bytes). Scanned PDFs need selectable text/OCR;
 OCR is not implemented. Chat history is browser-local and is not synced across
 accounts/devices. The UI does not expose server processing stages. Model output
 can vary and should be checked against the cited original.
+
+## Architecture
+
+```mermaid
+flowchart LR
+    Browser[React / Vite on Azure Static Web Apps] -->|HTTPS + JWT bearer token| API[FastAPI on Azure Container Apps]
+    API -->|Users, documents and page chunks| DB[(PostgreSQL + pgvector)]
+    API -->|Private original PDF upload/download| Storage[Supabase Storage]
+    API -->|Page text to 384-dimensional vectors| Embed[Local MiniLM embeddings]
+    Embed --> DB
+    DB -->|Nearest chunks within the selected document| API
+    API -->|Retrieved context| Groq[Groq answer model]
+    Groq -->|Generated tokens| API
+    API -->|SSE: sources, tokens, done| Browser
+    Browser -->|Citation page and passage| Viewer[PDF.js text layer]
+```
+
+Uploads extract and chunk each physical PDF page, generate embeddings, and store
+page metadata. Questions retrieve chunks only from the authenticated user's
+selected document. Groq receives retrieved text, not the complete PDF. Citation
+chips map chunk indexes to physical pages. Conversation history stays in browser
+localStorage; it is not stored in PostgreSQL.
+
+## Engineering evidence
+
+- [Reproducible answer/citation evaluation](docs/evaluation.md)
+- [Public-demo limits and cost audit](docs/public-demo-readiness.md)
+- CI checks both backend and frontend on every branch push and pull request,
+  including a real PostgreSQL migration round trip. It uses dummy CI credentials
+  and never calls the production model or database.
+
+The synthetic 24-question smoke evaluation recorded 23/24 expected-answer matches and 18/18 answerable citation-page hits. These are limited synthetic results, not general document accuracy; see the evaluation report for the recorded hallucination and methodology.

@@ -1,0 +1,242 @@
+[
+  {
+    "slug": "observatory",
+    "title": "Synthetic Cedar Observatory Handbook",
+    "pages": [
+      {
+        "heading": "Visits",
+        "text": "Cedar Observatory public tours start at 19:30. Tour admission costs 12 credits. Reservations close on Thursday."
+      },
+      {
+        "heading": "Equipment",
+        "text": "The primary telescope aperture is 240 millimetres. The telescope custodian is Mira Chen. Calibration occurs every Tuesday."
+      },
+      {
+        "heading": "Weather",
+        "text": "Tours are cancelled when wind speed exceeds 35 kilometres per hour. Cancelled reservations receive refunds within five business days."
+      }
+    ],
+    "cases": [
+      {
+        "question": "When do public tours start?",
+        "expected_terms": [
+          "19:30"
+        ],
+        "expected_page": 1,
+        "answerable": true
+      },
+      {
+        "question": "How much does tour admission cost?",
+        "expected_terms": [
+          "12"
+        ],
+        "expected_page": 1,
+        "answerable": true
+      },
+      {
+        "question": "What is the primary telescope aperture?",
+        "expected_terms": [
+          "240"
+        ],
+        "expected_page": 2,
+        "answerable": true
+      },
+      {
+        "question": "Who is the telescope custodian?",
+        "expected_terms": [
+          "Mira Chen"
+        ],
+        "expected_page": 2,
+        "answerable": true
+      },
+      {
+        "question": "At what wind speed are tours cancelled?",
+        "expected_terms": [
+          "35"
+        ],
+        "expected_page": 3,
+        "answerable": true
+      },
+      {
+        "question": "How long do refunds for cancelled reservations take?",
+        "expected_terms": [
+          "five"
+        ],
+        "expected_page": 3,
+        "answerable": true
+      },
+      {
+        "question": "Who founded Cedar Observatory?",
+        "expected_terms": [],
+        "expected_page": null,
+        "answerable": false
+      },
+      {
+        "question": "What is Cedar Observatory's street address?",
+        "expected_terms": [],
+        "expected_page": null,
+        "answerable": false
+      }
+    ]
+  },
+  {
+    "slug": "bikes",
+    "title": "Synthetic Juniper Bicycle Fleet Manual",
+    "pages": [
+      {
+        "heading": "Fleet",
+        "text": "The Juniper fleet contains 48 bicycles. All fleet bicycles use 26 inch wheels. The maintenance manager is Omar Vale."
+      },
+      {
+        "heading": "Maintenance",
+        "text": "Bicycle tyre pressure should be 55 PSI. Chains are lubricated every 150 kilometres. Brake inspections occur every Friday."
+      },
+      {
+        "heading": "Checkout",
+        "text": "Bicycles may be borrowed for a maximum of four hours. The return station closes at 18:00. The replacement deposit is 80 credits."
+      }
+    ],
+    "cases": [
+      {
+        "question": "How many bicycles are in the fleet?",
+        "expected_terms": [
+          "48"
+        ],
+        "expected_page": 1,
+        "answerable": true
+      },
+      {
+        "question": "Who is the maintenance manager?",
+        "expected_terms": [
+          "Omar Vale"
+        ],
+        "expected_page": 1,
+        "answerable": true
+      },
+      {
+        "question": "What tyre pressure is specified?",
+        "expected_terms": [
+          "55"
+        ],
+        "expected_page": 2,
+        "answerable": true
+      },
+      {
+        "question": "After how many kilometres are chains lubricated?",
+        "expected_terms": [
+          "150"
+        ],
+        "expected_page": 2,
+        "answerable": true
+      },
+      {
+        "question": "What is the maximum borrowing period?",
+        "expected_terms": [
+          "four"
+        ],
+        "expected_page": 3,
+        "answerable": true
+      },
+      {
+        "question": "When does the return station close?",
+        "expected_terms": [
+          "18:00"
+        ],
+        "expected_page": 3,
+        "answerable": true
+      },
+      {
+        "question": "What brand are the bicycles?",
+        "expected_terms": [],
+        "expected_page": null,
+        "answerable": false
+      },
+      {
+        "question": "What is the maintenance manager's telephone number?",
+        "expected_terms": [],
+        "expected_page": null,
+        "answerable": false
+      }
+    ]
+  },
+  {
+    "slug": "library",
+    "title": "Synthetic Willow Library Service Guide",
+    "pages": [
+      {
+        "heading": "Opening",
+        "text": "Willow Library opens at 09:15 on weekdays. The library closes at 17:45. The service coordinator is Elena Moss."
+      },
+      {
+        "heading": "Loans",
+        "text": "Members may borrow seven books at a time. The standard loan period is 21 days. Overdue charges are two credits per day."
+      },
+      {
+        "heading": "Study rooms",
+        "text": "Study room reservations last 90 minutes. Rooms accommodate six people. Reservations must be made at least two hours ahead."
+      }
+    ],
+    "cases": [
+      {
+        "question": "When does the library open on weekdays?",
+        "expected_terms": [
+          "09:15"
+        ],
+        "expected_page": 1,
+        "answerable": true
+      },
+      {
+        "question": "Who is the service coordinator?",
+        "expected_terms": [
+          "Elena Moss"
+        ],
+        "expected_page": 1,
+        "answerable": true
+      },
+      {
+        "question": "How many books may a member borrow at once?",
+        "expected_terms": [
+          "seven"
+        ],
+        "expected_page": 2,
+        "answerable": true
+      },
+      {
+        "question": "What is the standard loan period?",
+        "expected_terms": [
+          "21"
+        ],
+        "expected_page": 2,
+        "answerable": true
+      },
+      {
+        "question": "How long does a study room reservation last?",
+        "expected_terms": [
+          "90"
+        ],
+        "expected_page": 3,
+        "answerable": true
+      },
+      {
+        "question": "How many people fit in a study room?",
+        "expected_terms": [
+          "six"
+        ],
+        "expected_page": 3,
+        "answerable": true
+      },
+      {
+        "question": "What year was Willow Library established?",
+        "expected_terms": [],
+        "expected_page": null,
+        "answerable": false
+      },
+      {
+        "question": "How many employees work at Willow Library?",
+        "expected_terms": [],
+        "expected_page": null,
+        "answerable": false
+      }
+    ]
+  }
+]
