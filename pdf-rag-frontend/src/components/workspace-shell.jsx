@@ -18,7 +18,7 @@ const getMobileSnapshot = () => window.matchMedia("(max-width: 767px)").matches
 
 const suggestions = ["Summarize this document", "What are the key takeaways?", "Explain the main ideas simply"]
 
-export function WorkspaceShell({ token, files, documentId, onSelectDocument, onUpload, uploads, onRename, onDelete, onLogout, question, onQuestionChange, onAsk, turns, generating, onStop, onRetry, onClear, storageWarning, message, loading }) {
+export function WorkspaceShell({ token, guest = false, files, documentId, onSelectDocument, onUpload, uploads, onRename, onDelete, onLogout, question, onQuestionChange, onAsk, turns, generating, onStop, onRetry, onClear, storageWarning, message, loading }) {
   const mobile = useSyncExternalStore(subscribeMobile, getMobileSnapshot, () => false)
   const [collapsed, setCollapsed] = useState(getMobileSnapshot)
   const [mobileTab, setMobileTab] = useState("chat")
@@ -37,7 +37,7 @@ export function WorkspaceShell({ token, files, documentId, onSelectDocument, onU
   const input = useRef(null)
   const selected = files.find(file => file.id === documentId)
 
-  function upload(files) { if (files?.length) { onUpload(files); setCollapsed(false) } }
+  function upload(files) { if (!guest && files?.length) { onUpload(files); setCollapsed(false) } }
   async function deleteDocument(id) {
     await onDelete(id)
     setPages(old => { const next = { ...old }; delete next[id]; return next })
@@ -64,7 +64,7 @@ export function WorkspaceShell({ token, files, documentId, onSelectDocument, onU
                   <p className="mt-3 text-xs text-muted-foreground">Or drop it here · PDF · up to 10 MiB each</p>
                 </div>
               ) : (
-                <div className="flex flex-wrap justify-center gap-2">{suggestions.map(text => <Button key={text} variant="outline" className="h-auto whitespace-normal rounded-xl py-2"  onClick={() => onQuestionChange(text)}>{text}</Button>)}</div>
+                <div className="flex flex-wrap justify-center gap-2">{(guest ? ["How does the app find relevant text?", "What do page citations mean?", "Where is chat history stored?"] : suggestions).map(text => <Button key={text} variant="outline" className="h-auto whitespace-normal rounded-xl py-2"  onClick={() => onQuestionChange(text)}>{text}</Button>)}</div>
               )}
             </div>
     </ChatPanel>
@@ -79,18 +79,19 @@ export function WorkspaceShell({ token, files, documentId, onSelectDocument, onU
         </div>
         <ThemeToggle />
       </header>
+      {guest && <div className="flex shrink-0 items-center justify-between gap-3 border-b bg-muted/40 px-4 py-2 text-sm"><span>Guest demo · sample PDF only</span><Button variant="outline" size="sm" onClick={onLogout}>Sign in / create account</Button></div>}
       <div className="relative flex min-h-0 flex-1">
         {!collapsed && <aside id="document-sidebar" aria-label="Documents" className="absolute inset-y-0 left-0 z-20 flex w-64 shrink-0 flex-col border-r bg-card shadow-sm md:relative md:shadow-none">
-          <div className="p-4"><Button className="w-full rounded-xl"  onClick={() => input.current?.click()}><Upload />Upload PDF</Button></div>
+          {!guest && <div className="p-4"><Button className="w-full rounded-xl"  onClick={() => input.current?.click()}><Upload />Upload PDF</Button></div>}
           <div className="px-4 pb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">Documents</div>
           <nav aria-label="Select a document" className="flex-1 space-y-1 overflow-y-auto px-2">{files.length ? files.map(file => (
-            <DocumentItem key={file.id} file={file} selected={file.id === documentId} onRename={onRename} onDelete={deleteDocument} onSelect={() => { setNavigation(null); onSelectDocument(file.id); if (mobile) setCollapsed(true) }} />
+            guest ? <Button key={file.id} variant="ghost" className="w-full justify-start whitespace-normal text-left" onClick={() => onSelectDocument(file.id)}>{file.display_name || file.filename}</Button> : <DocumentItem key={file.id} file={file} selected={file.id === documentId} onRename={onRename} onDelete={deleteDocument} onSelect={() => { setNavigation(null); onSelectDocument(file.id); if (mobile) setCollapsed(true) }} />
           )) : <p className="px-3 py-4 text-sm text-muted-foreground">Your library starts here.</p>}</nav>
-          <UploadList uploads={uploads} />
-          <div className="border-t p-3"><Button variant="ghost" className="w-full justify-start" onClick={onLogout}><LogOut />Log out</Button></div>
+          {!guest && <UploadList uploads={uploads} />}
+          <div className="border-t p-3"><Button variant="ghost" className="w-full justify-start" onClick={onLogout}><LogOut />{guest ? "Exit demo" : "Log out"}</Button></div>
         </aside>}
         {!collapsed && <button className="absolute inset-y-0 right-0 left-64 z-10 rounded-none! bg-black/20! p-0! md:hidden" aria-label="Close document sidebar" onClick={() => setCollapsed(true)} />}
-        <input ref={input} className="hidden" type="file" multiple accept="application/pdf,.pdf" aria-label="Upload PDF" onChange={event => { upload(event.target.files); event.target.value = "" }} />
+        {!guest && <input ref={input} className="hidden" type="file" multiple accept="application/pdf,.pdf" aria-label="Upload PDF" onChange={event => { upload(event.target.files); event.target.value = "" }} />}
         <main className="min-w-0 flex-1" inert={mobile && !collapsed}>
           {!mobile ? <div className="h-full"><ResizablePanelGroup orientation="horizontal"><ResizablePanel id="pdf" defaultSize="45%" minSize="25%">{preview}</ResizablePanel><ResizableHandle withHandle aria-label="Resize PDF and chat panels" /><ResizablePanel id="chat" defaultSize="55%" minSize="30%">{chat}</ResizablePanel></ResizablePanelGroup></div> : <Tabs value={mobileTab} onValueChange={setMobileTab} className="flex h-full flex-col gap-0 md:hidden">
             <TabsList className="mx-4 my-3 grid w-auto grid-cols-2"><TabsTrigger value="chat">Chat</TabsTrigger><TabsTrigger value="pdf">PDF</TabsTrigger></TabsList>

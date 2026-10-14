@@ -1,0 +1,97 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Count 3 /Kids [4 0 R 6 0 R 8 0 R] >>
+endobj
+3 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+4 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents 5 0 R >>
+endobj
+5 0 obj
+<< /Length 997 >>
+stream
+BT /F1 12 Tf 50 760 Td 18 TL
+(PDF RAG Workspace: Public Demo Guide) Tj T*
+(Page 1: Finding relevant text) Tj T*
+() Tj T*
+(PDF RAG Workspace lets you read a PDF beside a chat and ask questions grounded in the) Tj T*
+(document. The server extracts selectable text from each physical PDF page and chunks) Tj T*
+(each page separately. MiniLM converts chunks into 384-dimensional embeddings.) Tj T*
+(PostgreSQL with pgvector compares a question embedding with stored chunk embeddings) Tj T*
+(using cosine similarity. Retrieval is restricted to the selected document owned by) Tj T*
+(the authenticated account. The server sends the retrieved text to Groq as context and) Tj T*
+(asks it to answer only from that context. Answers stream back to the browser using) Tj T*
+(server-sent events over a fetch request. If the context does not provide an answer,) Tj T*
+(the model is instructed to say it could not find the answer. Model answers can still) Tj T*
+(be wrong; check the supporting passage.) Tj T*
+ET
+endstream
+endobj
+6 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents 7 0 R >>
+endobj
+7 0 obj
+<< /Length 1006 >>
+stream
+BT /F1 12 Tf 50 760 Td 18 TL
+(PDF RAG Workspace: Public Demo Guide) Tj T*
+(Page 2: Page citations and conversations) Tj T*
+() Tj T*
+(Answers cite retrieved chunks using Chunk markers. Each source stores a chunk index,) Tj T*
+(its physical PDF page number, a text preview and retrieval similarity. Clicking a) Tj T*
+(citation opens the corresponding page in the PDF viewer and highlights the supporting) Tj T*
+(text when a match is found. If matching fails, the viewer briefly highlights the) Tj T*
+(page. The viewer uses PDF.js through react-pdf and lazy-renders pages. Citations) Tj T*
+(refer to physical page positions, not printed page labels. Each document has a) Tj T*
+(separate conversation. Chat history and drafts stay in the visitor's browser; history) Tj T*
+(is saved in localStorage, while drafts stay in memory. Conversations are not synced) Tj T*
+(between devices. The interface supports Markdown answers, light and dark themes, a) Tj T*
+(desktop split view and mobile chat/PDF tabs.) Tj T*
+ET
+endstream
+endobj
+8 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents 9 0 R >>
+endobj
+9 0 obj
+<< /Length 1095 >>
+stream
+BT /F1 12 Tf 50 760 Td 18 TL
+(PDF RAG Workspace: Public Demo Guide) Tj T*
+(Page 3: Guest demo and full accounts) Tj T*
+() Tj T*
+(This is a public sample PDF created specifically for the guest demo. Guest access) Tj T*
+(requires no email, password or registration. A guest session lasts 20 minutes and) Tj T*
+(allows reading this sample and asking questions about it. Guests cannot upload PDFs,) Tj T*
+(rename or delete this sample, or access other people's documents. All guest questions) Tj T*
+(share an allowance of 10 requests per minute on the current single backend process.) Tj T*
+(To upload your own PDF, sign in or create a free account. Full accounts have owner-) Tj T*
+(scoped document access, uploads up to 10 MiB, rename and delete. Ingestion is) Tj T*
+(synchronous, so the UI reports real upload progress followed by indeterminate) Tj T*
+(processing. Scanned PDFs without selectable text need OCR, which is not implemented.) Tj T*
+(The frontend runs on Azure Static Web Apps and FastAPI runs on Azure Container Apps.) Tj T*
+(Original PDFs are stored privately in Supabase.) Tj T*
+ET
+endstream
+endobj
+xref
+0 10
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000127 00000 n 
+0000000197 00000 n 
+0000000323 00000 n 
+0000001371 00000 n 
+0000001497 00000 n 
+0000002555 00000 n 
+0000002681 00000 n 
+trailer
+<< /Size 10 /Root 1 0 R >>
+startxref
+3828
+%%EOF

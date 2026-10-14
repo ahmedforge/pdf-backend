@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import { apiRequest } from "./api"
 import { useUploadQueue } from "@/hooks/use-upload-queue"
 import { readToken, saveToken, removeToken } from "@/lib/token-storage"
+import { isGuestToken } from "@/lib/guest-session"
+import { Button } from "@/components/ui/button"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { useDocumentChat } from "@/hooks/use-document-chat"
 import { WorkspaceShell } from "@/components/workspace-shell"
@@ -18,6 +20,7 @@ function App() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [token, setToken] = useState(readToken)
+  const guest = isGuestToken(token)
   const activeToken = useRef(token)
   useEffect(() => { activeToken.current = token }, [token])
 
@@ -63,6 +66,22 @@ function App() {
       .catch(error => { if (active) handleFileError(error) })
     return () => { active = false }
   }, [token, applyFiles, handleFileError])
+
+  async function startGuestDemo() {
+    setLoading(true)
+    setMessage("Opening the sample PDF… the server may need a moment to wake up.")
+    try {
+      const response = await apiRequest("/auth/guest", { method: "POST" })
+      const data = await response.json()
+      chat.reset()
+      saveToken(data.access_token)
+      setDocumentId(data.document_id)
+      setToken(data.access_token)
+      setMessage("")
+    } catch (error) {
+      setMessage(`Could not open the demo: ${error.message}`)
+    } finally { setLoading(false) }
+  }
 
   async function handleLogin(event) {
     event.preventDefault()
@@ -154,6 +173,9 @@ function App() {
       <div style={{ maxWidth: "420px", margin: "80px auto", padding: "24px" }}>
         <div className="flex justify-end"><ThemeToggle /></div>
         <h1>PDF RAG</h1>
+        <p className="my-3 text-sm text-muted-foreground">Ask a question and jump to the supporting passage in a PDF.</p>
+        <Button className="my-3 w-full rounded-xl" onClick={startGuestDemo} disabled={loading}>Try the demo — no signup</Button>
+        <p className="mb-6 text-sm text-muted-foreground">Explore a sample PDF, chat and page citations. Sign in below to upload your own documents.</p>
         <h2>{authMode === "register" ? "Create account" : "Login"}</h2>
 
         <form onSubmit={handleLogin}>
@@ -202,7 +224,7 @@ function App() {
 
   return (
     <WorkspaceShell
-      token={token} files={files} documentId={documentId}
+      token={token} guest={guest} files={files} documentId={documentId}
       onSelectDocument={selectDocument} onUpload={uploads.add} uploads={uploads} onRename={renameDocument} onDelete={deleteDocument}
       onLogout={handleLogout} question={question} onQuestionChange={text => chat.setDraft(documentId, text)}
       onAsk={handleAsk} turns={chat.conversations[documentId] || []}

@@ -149,6 +149,9 @@ def list_files(
     current_user=Depends(get_current_user)
 ):
     documents = get_all_documents(current_user.id)
+    guest_document_id = getattr(current_user, "guest_document_id", None)
+    if guest_document_id is not None:
+        documents = [document for document in documents if document["id"] == guest_document_id]
 
     return {
         "files": documents

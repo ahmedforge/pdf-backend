@@ -5,6 +5,9 @@ responsive light/dark interface.
 
 **Live app:** https://white-grass-09deb0b00.1.azurestaticapps.net
 
+Click **Try the demo — no signup** to read the public sample, ask real questions,
+and follow page citations. Sign in only when you want to upload your own PDFs.
+
 The React/Vite frontend runs on Azure Static Web Apps. FastAPI runs on Azure
 Container Apps, using PostgreSQL + pgvector, private Supabase PDF storage, local
 MiniLM embeddings, and Groq for answers. Accounts and document operations are
@@ -16,6 +19,8 @@ owner-scoped.
 
 ## Features
 
+- A no-signup guest demo with a public sample PDF, 20-minute sample-only sessions,
+  and server-enforced read/chat permissions. Guest model calls share a rate limit.
 - Multiple PDFs in a sequential upload queue with real transfer progress,
   indeterminate processing, failure messages, Retry/Dismiss, and safe response-loss
   reconciliation. Ingestion remains synchronous; extraction/embedding percentages
@@ -74,7 +79,7 @@ npm run lint
 npm run build
 ```
 
-The backend suite now passes 110 tests (including four evaluation tests). The release review separately exercised real
+The backend suite now passes 128 tests (including guest authorization and evaluation tests). The release review separately exercised real
 PostgreSQL upgrade/downgrade/upgrade, duplicate-name refusal, and recovery locks.
 Production checks covered fresh accounts, owner isolation, upload/download,
 rename/delete, streaming sources, and PDF persistence across an Express rolling
@@ -83,6 +88,7 @@ citation highlighting and rename. Physical-device acceptance is still pending.
 
 ## API and operations
 
+- [Guest demo setup and restrictions](docs/guest-demo.md)
 - [Document management and migration](docs/document-management.md)
 - [Page citation and SSE contract](docs/page-citations.md)
 - [Frontend behavior and local checks](pdf-rag-frontend/README.md)

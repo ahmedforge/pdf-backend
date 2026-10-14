@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Response
 from pydantic import BaseModel, EmailStr, Field
 
 from app.repositories.user_repository import (
@@ -74,3 +74,12 @@ def login(data: LoginRequest):
         "access_token": access_token,
         "token_type": "bearer"
     }
+
+@router.post("/guest")
+def start_guest_demo(response: Response):
+    from app.services.guest_demo import get_demo_document
+    from app.security import create_guest_token
+    document = get_demo_document()
+    response.headers['Cache-Control'] = 'no-store'
+    return {"access_token": create_guest_token(document), "token_type": "bearer",
+            "guest": True, "document_id": document.id, "expires_in": 1200}
