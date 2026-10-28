@@ -1,16 +1,24 @@
-# React + Vite
+# PDF workspace frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+React/Vite client for the FastAPI document Q&A service. It provides registration/login, document selection and uploads, and streamed answers.
 
-Currently, two official plugins are available:
+## Development
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+Requires Node.js 22 and a running backend (see the [repository setup](../README.md#run-locally)).
 
-## React Compiler
+```bash
+npm ci
+VITE_API_BASE_URL=http://localhost:8000 npm run dev
+```
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+Open http://localhost:5173. The backend must allow this exact origin through `CORS_ORIGINS`. Tokens are stored in browser localStorage; logging out clears the saved token.
 
-## Expanding the ESLint configuration
+## Checks and production build
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+```bash
+npm run lint
+VITE_API_BASE_URL=https://your-api.example.com npm run build
+npm run preview
+```
+
+Vite writes the build to `dist/`. Configure the public backend URL when building. Never put model keys, database passwords, or Supabase service credentials in `VITE_*` variables. This branch has no frontend automated test script.
