@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta, timezone
 
 import jwt
-from fastapi import Depends, HTTPException
+from fastapi import Depends, HTTPException, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pwdlib import PasswordHash
 
@@ -41,6 +41,7 @@ def create_access_token(user_id: int):
 
 
 def get_current_user(
+    request: Request,
     credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme)
 ):
     try:
@@ -66,4 +67,15 @@ def get_current_user(
             detail="User not found"
         )
 
+    if payload.get("guest") is True:
+        from app.services.guest_demo import authorize_guest
+        user.guest_document_id = authorize_guest(payload, request.method, request.url.path)
+
     return user
+
+def create_guest_token(document):
+    return jwt.encode({
+        "sub": str(document.owner_id), "guest": True,
+        "guest_document_id": document.id,
+        "exp": datetime.now(timezone.utc) + timedelta(minutes=20),
+    }, SECRET_KEY, algorithm=ALGORITHM)

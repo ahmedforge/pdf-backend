@@ -1,5 +1,12 @@
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { apiRequest } from "./api"
+import { useUploadQueue } from "@/hooks/use-upload-queue"
+import { readToken, saveToken, removeToken } from "@/lib/token-storage"
+import { isGuestToken } from "@/lib/guest-session"
+import { Button } from "@/components/ui/button"
+import { ThemeToggle } from "@/components/theme-toggle"
+import { useDocumentChat } from "@/hooks/use-document-chat"
+import { WorkspaceShell } from "@/components/workspace-shell"
 
 async function fetchFiles(token) {
   const response = await apiRequest("/files", {
@@ -12,14 +19,17 @@ function App() {
   const [authMode, setAuthMode] = useState("login")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
-  const [token, setToken] = useState(localStorage.getItem("token") || "")
+  const [token, setToken] = useState(readToken)
+  const guest = isGuestToken(token)
+  const activeToken = useRef(token)
+  useEffect(() => { activeToken.current = token }, [token])
 
   const [files, setFiles] = useState([])
-  const [file, setFile] = useState(null)
   const [documentId, setDocumentId] = useState(null)
 
-  const [question, setQuestion] = useState("")
-  const [answer, setAnswer] = useState("")
+  const chat = useDocumentChat(token)
+  const question = chat.drafts[documentId] || ""
+  const resetChat = chat.reset
   const [message, setMessage] = useState("")
   const [loading, setLoading] = useState(false)
 
@@ -30,7 +40,8 @@ function App() {
 
   const handleFileError = useCallback(error => {
     if (error.status === 401) {
-      localStorage.removeItem("token")
+      resetChat()
+      removeToken()
       setToken("")
       setFiles([])
       setDocumentId(null)
@@ -38,11 +49,13 @@ function App() {
     } else {
       setMessage(`Could not load files: ${error.message}`)
     }
-  }, [])
+  }, [resetChat])
 
   const loadFiles = useCallback(() => {
     if (!token) return Promise.resolve()
-    return fetchFiles(token).then(applyFiles).catch(handleFileError)
+    return fetchFiles(token)
+      .then(data => { if (activeToken.current === token) applyFiles(data) })
+      .catch(error => { if (activeToken.current === token) handleFileError(error) })
   }, [token, applyFiles, handleFileError])
 
   useEffect(() => {
@@ -53,6 +66,22 @@ function App() {
       .catch(error => { if (active) handleFileError(error) })
     return () => { active = false }
   }, [token, applyFiles, handleFileError])
+
+  async function startGuestDemo() {
+    setLoading(true)
+    setMessage("Opening the sample PDF… the server may need a moment to wake up.")
+    try {
+      const response = await apiRequest("/auth/guest", { method: "POST" })
+      const data = await response.json()
+      chat.reset()
+      saveToken(data.access_token)
+      setDocumentId(data.document_id)
+      setToken(data.access_token)
+      setMessage("")
+    } catch (error) {
+      setMessage(`Could not open the demo: ${error.message}`)
+    } finally { setLoading(false) }
+  }
 
   async function handleLogin(event) {
     event.preventDefault()
@@ -80,10 +109,11 @@ function App() {
 
       const data = await response.json()
 
-      localStorage.setItem("token", data.access_token)
+      chat.reset()
+      const savedToken = saveToken(data.access_token)
       setToken(data.access_token)
       setPassword("")
-      setMessage(authMode === "register" ? "Account created and logged in" : "Login successful")
+      setMessage(savedToken ? (authMode === "register" ? "Account created and logged in" : "Login successful") : "Logged in. Device storage is unavailable; sign in again after reloading.")
     } catch (error) {
       setMessage(`Authentication failed: ${error.message}`)
     } finally {
@@ -91,112 +121,61 @@ function App() {
     }
   }
 
-  async function handleUpload() {
-    if (!file) {
-      setMessage("Choose a PDF first")
-      return
-    }
+  const uploads = useUploadQueue(token, async data => {
+    setDocumentId(previous => previous ?? data.document_id)
+    await loadFiles()
+  })
 
-    setLoading(true)
-    setMessage("Uploading and indexing… the first PDF may take several minutes.")
-
+  async function renameDocument(id, displayName) {
+    const previous = files.find(file => file.id === id)
+    setFiles(old => old.map(file => file.id === id ? { ...file, display_name: displayName } : file))
     try {
-      const formData = new FormData()
-      formData.append("file", file)
-
-      const response = await apiRequest("/upload", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-        body: formData,
-      })
-
-      const data = await response.json()
-
-      setDocumentId(data.document_id)
-      setMessage(`Uploaded successfully. Document ID: ${data.document_id}`)
-
-      await loadFiles()
+      const response = await apiRequest(`/files/${id}`, { method: 'PATCH', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ display_name: displayName }) })
+      const updated = await response.json()
+      setFiles(old => old.map(file => file.id === id ? updated : file))
     } catch (error) {
-      setMessage(`Upload failed: ${error.message}`)
-    } finally {
-      setLoading(false)
+      setFiles(old => old.map(file => file.id === id ? previous : file))
+      throw error
     }
   }
 
-  async function handleAsk(event) {
+  async function deleteDocument(id) {
+    await apiRequest(`/files/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } })
+    chat.remove(id)
+    setFiles(old => old.filter(file => file.id !== id))
+    setDocumentId(old => old === id ? files.find(file => file.id !== id)?.id ?? null : old)
+    setMessage('Document deleted.')
+  }
+
+  function handleAsk(event) {
     event.preventDefault()
+    setMessage(""); chat.send(documentId, question)
+  }
 
-    if (!documentId) {
-      setMessage("Select or upload a PDF first")
-      return
-    }
-
-    if (!question.trim()) {
-      return
-    }
-
-    setAnswer("")
-    setLoading(true)
-    setMessage("Generating answer...")
-
-    try {
-      const response = await apiRequest(
-        `/files/${documentId}/ask/stream`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            question,
-            top_k: 3,
-          }),
-        }
-      )
-
-      if (!response.body) throw new Error("No answer stream was received")
-      const reader = response.body.getReader()
-      const decoder = new TextDecoder()
-      let received = ""
-
-      while (true) {
-        const { done, value } = await reader.read()
-
-        if (done) break
-
-        const chunk = decoder.decode(value, {
-          stream: true,
-        })
-
-        received += chunk
-        setAnswer(received)
-      }
-      received += decoder.decode()
-      setAnswer(received)
-      setMessage(received.includes("[Generation interrupted.") ? "Generation was interrupted. Please retry." : "Answer complete")
-    } catch (error) {
-      setMessage(`Question failed: ${error.message}`)
-    } finally {
-      setLoading(false)
-    }
+  function selectDocument(id) {
+    if (id !== documentId) chat.stop()
+    setDocumentId(id)
+    setMessage("")
   }
 
   function handleLogout() {
-    localStorage.removeItem("token")
+    uploads.reset()
+    removeToken()
     setToken("")
     setFiles([])
     setDocumentId(null)
-    setAnswer("")
+    chat.reset()
     setMessage("")
   }
 
   if (!token) {
     return (
       <div style={{ maxWidth: "420px", margin: "80px auto", padding: "24px" }}>
+        <div className="flex justify-end"><ThemeToggle /></div>
         <h1>PDF RAG</h1>
+        <p className="my-3 text-sm text-muted-foreground">Ask a question and jump to the supporting passage in a PDF.</p>
+        <Button className="my-3 w-full rounded-xl" onClick={startGuestDemo} disabled={loading}>Try the demo — no signup</Button>
+        <p className="mb-6 text-sm text-muted-foreground">Explore a sample PDF, chat and page citations. Sign in below to upload your own documents.</p>
         <h2>{authMode === "register" ? "Create account" : "Login"}</h2>
 
         <form onSubmit={handleLogin}>
@@ -244,101 +223,15 @@ function App() {
   }
 
   return (
-    <div style={{ maxWidth: "800px", margin: "40px auto", padding: "24px" }}>
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-        }}
-      >
-        <h1>PDF RAG</h1>
-        <button onClick={handleLogout}>Logout</button>
-      </div>
-
-      <hr />
-
-      <h2>1. Select Existing PDF</h2>
-
-      {files.length > 0 ? (
-        <select
-          value={documentId || ""}
-          onChange={(event) => setDocumentId(Number(event.target.value))}
-          style={{ width: "100%", padding: "10px" }}
-        >
-          {files.map((item) => (
-            <option key={item.id} value={item.id}>
-              {item.filename} (ID: {item.id})
-            </option>
-          ))}
-        </select>
-      ) : (
-        <p>No existing PDFs found.</p>
-      )}
-
-      <hr />
-
-      <h2>2. Upload New PDF</h2>
-
-      <input
-        type="file"
-        accept="application/pdf"
-        onChange={(event) => setFile(event.target.files[0])}
-      />
-
-      <br />
-      <br />
-
-      <button onClick={handleUpload} disabled={loading}>
-        Upload PDF
-      </button>
-
-      {documentId && (
-        <p>
-          Selected Document ID: <strong>{documentId}</strong>
-        </p>
-      )}
-
-      <hr />
-
-      <h2>3. Ask your PDF</h2>
-
-      <form onSubmit={handleAsk}>
-        <textarea
-          value={question}
-          onChange={(event) => setQuestion(event.target.value)}
-          placeholder="Ask a question about the PDF..."
-          rows="4"
-          style={{
-            width: "100%",
-            padding: "12px",
-          }}
-        />
-
-        <br />
-        <br />
-
-        <button type="submit" disabled={loading || !documentId}>
-          Ask
-        </button>
-      </form>
-
-      <h2>Answer</h2>
-
-      <div
-        style={{
-          minHeight: "150px",
-          whiteSpace: "pre-wrap",
-          border: "1px solid #555",
-          padding: "16px",
-          borderRadius: "8px",
-        }}
-      >
-        {answer || "The streamed answer will appear here."}
-      </div>
-
-      <p>{message}</p>
-    </div>
+    <WorkspaceShell
+      token={token} guest={guest} files={files} documentId={documentId}
+      onSelectDocument={selectDocument} onUpload={uploads.add} uploads={uploads} onRename={renameDocument} onDelete={deleteDocument}
+      onLogout={handleLogout} question={question} onQuestionChange={text => chat.setDraft(documentId, text)}
+      onAsk={handleAsk} turns={chat.conversations[documentId] || []}
+      generating={Boolean(documentId) && chat.activeDocument === documentId} onStop={chat.stop}
+      onRetry={turn => chat.send(documentId, turn.question, turn.id)}
+      onClear={() => chat.clear(documentId)} storageWarning={chat.storageWarning} message={message} loading={false}
+    />
   )
 }
 

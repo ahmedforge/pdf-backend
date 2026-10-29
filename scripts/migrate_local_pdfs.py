@@ -22,7 +22,7 @@ from app.services.storage_service import open_pdf, storage_settings
 def validate_pdf(path):
     validate_filename(path.name)
     if path.stat().st_size > MAX_FILE_SIZE:
-        raise ValueError("PDF exceeds the 10 MB limit")
+        raise ValueError("PDF exceeds the 10 MiB (10485760 bytes) limit")
     with path.open("rb") as source:
         if source.read(5) != b"%PDF-":
             raise ValueError("File is not a PDF")
@@ -45,7 +45,34 @@ def main():
     folder = Path(args.uploads_dir)
     if not folder.is_dir():
         parser.error("Uploads directory does not exist")
-    files = sorted(p for p in folder.iterdir() if p.is_file() and p.suffix.lower() == ".pdf")
+    owner = None
+    original_names = {}
+    if folder.resolve() == Path("uploads").resolve():
+        # A shared application directory is not an import folder. Read only the
+        # selected owner's recorded physical keys; never adopt another owner's
+        # PDF or a UUID filename as the display/original name.
+        if not args.owner_email:
+            parser.error("Shared uploads requires --owner-email, including dry runs")
+        owner = get_user_by_email(args.owner_email.lower())
+        if owner is None:
+            parser.error("Owner account not found")
+        files = []
+        from app.services.storage_service import local_pdf_path
+        for item in get_all_documents(owner.id):
+            document = get_document_by_id(item["id"], owner.id)
+            if document is None:
+                parser.error("Document changed during inventory; retry")
+            path = local_pdf_path(document.storage_key or document.filename)
+            if not path.is_file():
+                parser.error("An owned local PDF is missing; use an explicit export folder for remote documents")
+            files.append(path)
+            original_names[path] = document.filename
+    else:
+        # An explicit separate export directory is assigned to the selected
+        # owner by the operator. Symlinks are rejected, not followed.
+        files = sorted(p for p in folder.iterdir() if p.suffix.lower() == ".pdf")
+        if any(p.is_symlink() or not p.is_file() for p in files):
+            parser.error("Export PDFs must be regular files, not symlinks")
     print(f"PDFs found: {len(files)}")
     failures = []
     for path in files:
@@ -67,15 +94,16 @@ def main():
         parser.error("FILE_STORAGE_BACKEND must be supabase")
     if not args.owner_email:
         parser.error("Provide --owner-email for the registered PDF app account")
-    owner = get_user_by_email(args.owner_email.lower())
+    owner = owner or get_user_by_email(args.owner_email.lower())
     if owner is None:
         print("Owner account not found. Register this email in the PDF app first.")
         return 1
     existing = {item["filename"]: item["id"] for item in get_all_documents(owner.id)}
     migrated = skipped = 0
     for path in files:
-        if path.name in existing:
-            document = get_document_by_id(existing[path.name], owner.id)
+        filename = original_names.get(path, path.name)
+        if filename in existing:
+            document = get_document_by_id(existing[filename], owner.id)
             with open_pdf(document.storage_key or document.filename) as saved:
                 if digest(saved) != digest(path):
                     print(f"Conflict: {path.name} differs from the existing stored PDF. Nothing overwritten.")
@@ -85,7 +113,7 @@ def main():
             continue
         try:
             with path.open("rb") as source:
-                result = upload_file(UploadFile(filename=path.name, file=source), current_user=owner)
+                result = upload_file(UploadFile(filename=filename, file=source), current_user=owner)
         except HTTPException as exc:
             print(f"Migration failed: {path.name}: HTTP {exc.status_code}. Re-run after fixing the failure.")
             return 1

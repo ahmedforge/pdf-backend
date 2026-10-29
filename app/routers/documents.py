@@ -1,16 +1,21 @@
 import os
+from uuid import uuid4
+from pypdf.errors import PdfReadError, ParseError
 from tempfile import mkstemp
 from datetime import datetime, timezone
 from app.config import settings
 from app.services.rate_limit_service import check_rate_limit
 from app.schemas.rag import AskRequest
+from app.schemas.documents import RenameDocumentRequest
 from fastapi.responses import StreamingResponse
 import re
+from typing import Literal
 from app.services.rag_service import (
     ask_document_rag,
     stream_document_rag,
+    stream_document_events,
 )
-from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
+from fastapi import Query, APIRouter, UploadFile, File, HTTPException, Depends
 from fastapi.responses import FileResponse
 from app.services.chunk_service import chunk_text
 from app.repositories.chunk_repository import (
@@ -21,19 +26,20 @@ from app.repositories.chunk_repository import (
 from app.repositories.document_repository import (
     get_all_documents,
     get_document_by_id,
-    delete_document
+    delete_document, rename_document, local_storage_key_in_use,
 )
 
 from app.security import get_current_user
 
 from app.services.file_service import validate_filename
-from app.services.ingestion_service import ingest_document
+from app.services.ingestion_service import ingest_document, cleanup_pending_uploads
 from app.services.storage_service import (
-    storage_settings, persist_pdf, open_pdf, delete_pdf,
+    storage_settings, open_pdf, local_pdf_path,
 )
 
 from app.services.pdf_service import (
     extract_text_from_pdf,
+    extract_page_chunks,
     clean_extracted_text
 )
 import logging
@@ -79,8 +85,13 @@ def upload_file(
         fd, file_path = mkstemp(prefix="pdf-upload-", suffix=".pdf")
         os.close(fd)
     else:
-        os.makedirs("uploads", exist_ok=True)
-        file_path = os.path.join("uploads", filename)
+        # The key is entirely server-generated; names/owners never form a path.
+        key = uuid4().hex + ".pdf"
+        while local_storage_key_in_use(key):
+            key = uuid4().hex + ".pdf"
+        path = local_pdf_path(key)
+        path.parent.mkdir(exist_ok=True)
+        file_path = str(path)
 
     created = remote
     complete = False
@@ -92,16 +103,15 @@ def upload_file(
             while chunk := file.file.read(1024 * 1024):
                 total_size += len(chunk)
                 if total_size > MAX_FILE_SIZE:
-                    raise HTTPException(413, "File is too large. Maximum size is 10 MB")
+                    raise HTTPException(413, "File is too large. Maximum size is 10 MiB (10485760 bytes)")
                 buffer.write(chunk)
 
-        _, text = extract_text_from_pdf(file_path)
-        text = clean_extracted_text(text)
-        if not text.strip():
-            raise HTTPException(422, "No extractable text was found. The PDF may be scanned or image-based.")
-        chunks = chunk_text(text)
+        try:
+            chunks = extract_page_chunks(file_path)
+        except (PdfReadError, ParseError) as exc:
+            raise HTTPException(422, "This PDF is corrupt, encrypted, or unreadable. Upload an unencrypted, readable PDF.") from exc
         if not chunks:
-            raise HTTPException(422, "The PDF did not produce any searchable chunks.")
+            raise HTTPException(422, "No searchable text chunks were found. The PDF may be scanned, empty, or contain only very short text.")
 
         document = ingest_document(
             filename, total_size, datetime.now(timezone.utc), current_user.id,
@@ -113,6 +123,10 @@ def upload_file(
             "message": "File uploaded successfully",
             "filename": filename,
             "document_id": document.id,
+            "id": document.id,
+            "display_name": document.display_name or document.filename,
+            "size_bytes": document.size_bytes,
+            "uploaded_at": document.uploaded_at,
             "chunks_created": len(chunks),
         }
     except FileExistsError as exc:
@@ -124,7 +138,10 @@ def upload_file(
         raise HTTPException(500, "PDF upload processing failed.") from exc
     finally:
         if created and (remote or not complete):
-            os.remove(file_path)
+            if remote:
+                os.remove(file_path)
+            else:
+                local_pdf_path(key).unlink(missing_ok=True)
 
 
 @router.get("/files")
@@ -132,46 +149,38 @@ def list_files(
     current_user=Depends(get_current_user)
 ):
     documents = get_all_documents(current_user.id)
+    guest_document_id = getattr(current_user, "guest_document_id", None)
+    if guest_document_id is not None:
+        documents = [document for document in documents if document["id"] == guest_document_id]
 
     return {
         "files": documents
     }
 
 
+@router.patch("/files/{document_id}")
+def rename_file(document_id: int, request: RenameDocumentRequest,
+                current_user=Depends(get_current_user)):
+    document = rename_document(document_id, current_user.id, request.display_name)
+    if document is None:
+        raise HTTPException(404, "Document not found")
+    return {"id": document.id, "filename": document.filename,
+            "display_name": document.display_name or document.filename,
+            "size_bytes": document.size_bytes, "uploaded_at": document.uploaded_at}
+
+
 @router.delete("/files/{document_id}")
-def delete_file(
-    document_id: int,
-    current_user=Depends(get_current_user)
-):
-    document = get_document_by_id(
-        document_id,
-        current_user.id
-    )
-
-    if not document:
-        raise HTTPException(
-            status_code=404,
-            detail="Document not found"
-        )
-
-    filename = document.filename
-    delete_pdf(document.storage_key or filename)
-
-    delete_document(
-        document_id,
-        current_user.id
-    )
-    logger.info(
-    "User %s deleted document %s",
-    current_user.id,
-    document_id
-    )
-
-    return {
-        "message": "File deleted successfully",
-        "document_id": document_id,
-        "filename": filename
-    }
+def delete_file(document_id: int, current_user=Depends(get_current_user)):
+    document = delete_document(document_id, current_user.id)
+    if document is None:
+        raise HTTPException(404, "Document not found")
+    try:
+        cleanup_pending_uploads(document.storage_key or document.filename)
+    except Exception:
+        logger.warning("Document deleted; PDF cleanup pending and will retry")
+    logger.info("User %s deleted document %s", current_user.id, document_id)
+    return {"message": "File deleted successfully", "document_id": document_id,
+            "filename": document.filename}
 
 
 def readable_document(document_id: int, current_user=Depends(get_current_user)):
@@ -358,6 +367,7 @@ def ask_document_stream(
     document_id: int,
     request: AskRequest,
     current_user=Depends(get_current_user),
+    stream_format: Literal["text", "sse"] = Query(default="text", alias="format"),
 ):
     document = get_document_by_id(
         document_id,
@@ -380,6 +390,13 @@ def ask_document_stream(
         if request.min_similarity is not None
         else settings.rag_min_similarity
     )
+
+    if stream_format == "sse":
+        return StreamingResponse(
+            stream_document_events(document_id, request.question, request.top_k, min_similarity),
+            media_type="text/event-stream",
+            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+        )
 
     stream = stream_document_rag(
         document_id=document_id,

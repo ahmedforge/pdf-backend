@@ -37,6 +37,19 @@ MAX_PDF_BYTES = 10 * 1024 * 1024
 TIMEOUT = httpx.Timeout(connect=10, read=60, write=60, pool=10)
 
 
+def local_pdf_path(key: str) -> Path:
+    """One safe key under uploads, including historical filename keys."""
+    if not key or Path(key).is_absolute() or "\\" in key or "/" in key or key in {".", ".."} or "\x00" in key:
+        raise HTTPException(400, "Invalid PDF storage key")
+    root = Path("uploads").absolute()
+    if root.is_symlink():
+        raise HTTPException(400, "Invalid PDF storage path")
+    path = root / key
+    if path.is_symlink() or not path.resolve().is_relative_to(root.resolve()):
+        raise HTTPException(400, "Invalid PDF storage path")
+    return path
+
+
 def _headers():
     key = storage_settings.supabase_service_role_key.get_secret_value()
     return {'Authorization': f'Bearer {key}', 'apikey': key}
@@ -89,7 +102,7 @@ def open_pdf(filename: str):
     """Yield a readable path; always remove temporary Supabase downloads."""
     filename = validate_filename(filename)
     if storage_settings.file_storage_backend == 'local':
-        path = Path('uploads') / filename
+        path = local_pdf_path(filename)
         if not path.is_file():
             raise HTTPException(404, 'File not found')
         yield str(path)
@@ -107,7 +120,7 @@ def open_pdf(filename: str):
                     for chunk in response.iter_bytes(chunk_size=64 * 1024):
                         size += len(chunk)
                         if size > MAX_PDF_BYTES:
-                            raise HTTPException(413, 'Stored PDF exceeds the 10 MB limit')
+                            raise HTTPException(413, 'Stored PDF exceeds the 10 MiB (10485760 bytes) limit')
                         target.write(chunk)
         yield str(path)
     except httpx.HTTPError as exc:
@@ -120,11 +133,16 @@ def open_pdf(filename: str):
 def delete_pdf(filename: str):
     filename = validate_filename(filename)
     if storage_settings.file_storage_backend == 'local':
-        (Path('uploads') / filename).unlink(missing_ok=True)
+        local_pdf_path(filename).unlink(missing_ok=True)
         return
     try:
         with httpx.Client(timeout=TIMEOUT) as client:
             response = client.request('DELETE', _url(), headers=_headers(), json={'prefixes': [filename]})
-            _check_response(response)
+            try:
+                _check_response(response)
+            except HTTPException as exc:
+                if exc.status_code != 404:
+                    raise
+                # DELETE is idempotent: already-missing objects are complete.
     except httpx.HTTPError as exc:
         raise HTTPException(503, 'PDF storage is unavailable. Please try again later.') from exc

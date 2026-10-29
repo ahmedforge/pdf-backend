@@ -80,3 +80,9 @@ def test_local_mode_keeps_file(monkeypatch, tmp_path):
     with storage.open_pdf('report.pdf') as opened:
         assert Path(opened).read_bytes() == b'%PDF-test'
     assert path.exists()
+
+
+@pytest.mark.parametrize('http_status,body', [(404, {}), (400, {'statusCode': '404'}), (200, [])])
+def test_already_missing_remote_delete_is_success(remote, http_status, body):
+    remote(lambda request: httpx.Response(http_status, json=body))
+    storage.delete_pdf('missing.pdf')

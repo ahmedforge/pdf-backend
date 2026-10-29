@@ -1,7 +1,8 @@
-from sqlalchemy import select
+from sqlalchemy import select, or_
 
 from app.database import SessionLocal
 from app.models.document import Document
+from app.models.pending_upload import PendingUpload
 
 
 def insert_document(filename, size_bytes, uploaded_at, owner_id):
@@ -32,6 +33,7 @@ def get_all_documents(owner_id: int):
             {
                 "id": document.id,
                 "filename": document.filename,
+                "display_name": document.display_name or document.filename,
                 "size_bytes": document.size_bytes,
                 "uploaded_at": document.uploaded_at
             }
@@ -49,15 +51,39 @@ def get_document_by_id(document_id: int, owner_id: int):
         )
 
 
-def delete_document(document_id: int, owner_id: int):
+def local_storage_key_in_use(key):
+    # Never reuse a legacy path, a live key, or an outstanding deletion key.
     with SessionLocal() as db:
-        document = db.scalar(
-            select(Document).where(
-                Document.id == document_id,
-                Document.owner_id == owner_id
-            )
-        )
+        return db.scalar(select(Document.id).where(or_(
+            Document.storage_key == key,
+            (Document.storage_key.is_(None)) & (Document.filename == key),
+        )).limit(1)) is not None or db.get(PendingUpload, key) is not None
 
-        if document:
-            db.delete(document)
-            db.commit()
+
+def rename_document(document_id, owner_id, display_name):
+    with SessionLocal.begin() as db:
+        document = db.scalar(select(Document).where(
+            Document.id == document_id, Document.owner_id == owner_id,
+        ).with_for_update())
+        if document is None:
+            return None
+        document.display_name = display_name
+    return document
+
+
+def delete_document(document_id: int, owner_id: int):
+    # Storage deletion follows commit; the row and its retry marker are atomic.
+    with SessionLocal.begin() as db:
+        document = db.scalar(select(Document).where(
+            Document.id == document_id, Document.owner_id == owner_id,
+        ).with_for_update())
+        if document is None:
+            return None
+        key = document.storage_key or document.filename
+        marker = db.scalar(select(PendingUpload).where(
+            PendingUpload.storage_key == key,
+        ).with_for_update())
+        if marker is None:
+            db.add(PendingUpload(storage_key=key))
+        db.delete(document)
+    return document

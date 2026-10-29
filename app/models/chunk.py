@@ -1,4 +1,4 @@
-from sqlalchemy import ForeignKey, Text, UniqueConstraint
+from sqlalchemy import CheckConstraint, ForeignKey, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 from pgvector.sqlalchemy import Vector
 
@@ -28,12 +28,15 @@ class Chunk(Base):
         nullable=False,
     )
 
+    page_number: Mapped[int | None] = mapped_column(nullable=True)
+
     embedding: Mapped[list[float] | None] = mapped_column(
         Vector(384),
         nullable=True,
     )
 
     __table_args__ = (
+        CheckConstraint("page_number IS NULL OR page_number >= 1", name="ck_chunks_page_number_positive"),
         UniqueConstraint(
             "document_id",
             "chunk_index",

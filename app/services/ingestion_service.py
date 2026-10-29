@@ -2,6 +2,7 @@
 import logging
 from datetime import datetime, timedelta, timezone
 from uuid import uuid4
+from pathlib import Path
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from fastapi import HTTPException
@@ -9,6 +10,7 @@ from app.database import SessionLocal
 from app.models.document import Document
 from app.models.chunk import Chunk
 from app.models.pending_upload import PendingUpload
+from app.services.chunk_service import normalize_chunks
 from app.services.embedding_service import generate_embeddings
 from app.services.storage_service import storage_settings, persist_pdf, delete_pdf
 
@@ -24,20 +26,31 @@ def cleanup_pending_uploads(storage_key=None, *, retire_marker=True):
     else:
         query = query.where(PendingUpload.created_at < datetime.now(timezone.utc) - timedelta(minutes=5))
     with SessionLocal.begin() as db:
-        pending = db.scalars(query.with_for_update(skip_locked=True).limit(10)).all()
+        pending = db.scalars(query.order_by(PendingUpload.created_at, PendingUpload.storage_key).with_for_update(skip_locked=True).limit(10)).all()
         for item in pending:
-            delete_pdf(item.storage_key)
-            if retire_marker:
-                db.delete(item)
+            try:
+                # Savepoint isolates one unavailable/invalid key from the batch.
+                with db.begin_nested():
+                    delete_pdf(item.storage_key)
+                    if retire_marker:
+                        db.delete(item)
+            except Exception:
+                logger.warning("PDF cleanup pending; will retry")
+                if storage_key is not None:
+                    raise
+                # Retry later so bad keys cannot monopolize every batch.
+                item.created_at = datetime.now(timezone.utc)
+            # Failed rows remain durable for the next recovery pass.
 
 
 def ingest_document(filename, size_bytes, uploaded_at, owner_id, chunks, file_path):
     # Expensive work precedes all database/storage writes.
-    embeddings = generate_embeddings(chunks)
+    records = normalize_chunks(chunks)
+    embeddings = generate_embeddings([record["chunk_text"] for record in records])
     if len(embeddings) != len(chunks):
         raise RuntimeError("Embedding count does not match document chunks")
     remote = storage_settings.file_storage_backend == "supabase"
-    key = "upload-" + uuid4().hex + ".pdf" if remote else filename
+    key = "upload-" + uuid4().hex + ".pdf" if remote else Path(file_path).name
     if remote:
         with SessionLocal.begin() as db:
             db.add(PendingUpload(storage_key=key))
@@ -52,12 +65,12 @@ def ingest_document(filename, size_bytes, uploaded_at, owner_id, chunks, file_pa
                     raise RuntimeError("Upload recovery marker is missing")
             document = Document(filename=filename, size_bytes=size_bytes,
                                 uploaded_at=uploaded_at, owner_id=owner_id,
-                                storage_key=key if remote else None)
+                                storage_key=key)
             db.add(document)
             db.flush()  # Detect duplicate filenames before uploading anything.
             db.add_all([Chunk(document_id=document.id, chunk_index=index,
-                              chunk_text=value, embedding=embedding)
-                        for index, (value, embedding) in enumerate(zip(chunks, embeddings))])
+                              chunk_text=value["chunk_text"], page_number=value["page_number"], embedding=embedding)
+                        for index, (value, embedding) in enumerate(zip(records, embeddings))])
             db.flush()
             persist_pdf(key, file_path)
             if remote:

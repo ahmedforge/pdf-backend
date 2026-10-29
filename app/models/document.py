@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import BigInteger, DateTime, String , ForeignKey
+from sqlalchemy import BigInteger, DateTime, String, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
@@ -19,7 +19,6 @@ class Document(Base):
 
     filename: Mapped[str] = mapped_column(
         String(255),
-        unique=True,
         nullable=False
     )
 
@@ -35,3 +34,7 @@ class Document(Base):
     )
 
     storage_key: Mapped[str | None] = mapped_column(String(255), nullable=True)
+
+    display_name: Mapped[str | None] = mapped_column(String(120), nullable=True)
+
+    __table_args__ = (UniqueConstraint("owner_id", "filename", name="uq_documents_owner_filename"),)

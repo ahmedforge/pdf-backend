@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     rag_min_similarity: float = 0.30
     groq_api_key: str | None = None
     groq_model: str = "openai/gpt-oss-20b"
+    guest_demo_document_id: int | None = None
 
     model_config = SettingsConfigDict(
         env_file=".env",

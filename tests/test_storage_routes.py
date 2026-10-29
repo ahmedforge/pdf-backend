@@ -58,12 +58,18 @@ def api(monkeypatch, tmp_path):
         fd, name = real_mkstemp(**kwargs); temporary.append(name); return fd, name
     monkeypatch.setattr(routes, 'mkstemp', stage)
     def insert(filename, size, uploaded_at, owner, chunks, file_path):
-        storage.persist_pdf(filename, file_path)
-        document = SimpleNamespace(id=len(documents)+1, filename=filename, owner_id=owner, storage_key=None)
+        if any(doc.filename == filename and doc.owner_id == owner for doc in documents.values()):
+            from fastapi import HTTPException
+            raise HTTPException(409, "A file with this name already exists")
+        key = filename if storage.storage_settings.file_storage_backend == 'supabase' else Path(file_path).name
+        storage.persist_pdf(key, file_path)
+        document = SimpleNamespace(id=len(documents)+1, filename=filename, owner_id=owner, storage_key=key, display_name=None, size_bytes=size, uploaded_at=uploaded_at)
         documents[document.id] = document; return document
     monkeypatch.setattr(routes, 'ingest_document', insert)
     monkeypatch.setattr(routes, 'get_document_by_id', lambda id, owner: documents.get(id) if id in documents and documents[id].owner_id == owner else None)
-    monkeypatch.setattr(routes, 'delete_document', lambda id, owner: documents.pop(id, None))
+    monkeypatch.setattr(routes, 'delete_document', lambda id, owner: documents.pop(id, None) if id in documents and documents[id].owner_id == owner else None)
+    monkeypatch.setattr(routes, 'cleanup_pending_uploads', storage.delete_pdf)
+    monkeypatch.setattr(routes, 'local_storage_key_in_use', lambda key: False)
     app.dependency_overrides[get_current_user] = lambda: SimpleNamespace(id=1)
     try:
         with TestClient(app) as client:
@@ -114,11 +120,11 @@ def test_embedding_failure_removes_new_pdf_and_record(api, monkeypatch):
     assert api.documents == {} and api.objects == {}
 
 
-def test_delete_failure_keeps_document(api):
+def test_delete_failure_returns_success_after_document_is_removed(api):
     assert upload(api).status_code == 200
     api.failures['DELETE'] = 503
-    assert api.client.delete('/files/1').status_code == 503
-    assert len(api.documents) == 1 and 'report.pdf' in api.objects
+    assert api.client.delete('/files/1').status_code == 200
+    assert len(api.documents) == 0 and 'report.pdf' in api.objects
 
 
 def test_other_user_cannot_fetch_pdf(api):
@@ -132,9 +138,11 @@ def test_other_user_cannot_fetch_pdf(api):
 def test_local_upload_conflict_keeps_existing_file(api, monkeypatch):
     monkeypatch.setattr(storage.storage_settings, 'file_storage_backend', 'local')
     assert upload(api).status_code == 200
-    original = Path('uploads/report.pdf').read_bytes()
+    original_path = Path('uploads') / api.documents[1].storage_key
+    original = original_path.read_bytes()
     assert upload(api).status_code == 409
-    assert Path('uploads/report.pdf').read_bytes() == original
+    assert original_path.read_bytes() == original
+    assert list(Path('uploads').iterdir()) == [original_path]
 
 
 def test_invalid_storage_configuration_does_not_print_key():

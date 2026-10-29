@@ -55,3 +55,33 @@ def test_resume_conflict_never_overwrites_existing_object(monkeypatch, tmp_path)
     monkeypatch.setattr('sys.argv', ['migrate','--uploads-dir',str(tmp_path),'--owner-email','owner@example.com'])
     assert migration.main() == 1
     assert remote.read_bytes() == b'%PDF-original'
+
+
+def test_shared_uploads_inventory_is_owner_scoped_and_uses_physical_key(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    folder = tmp_path/'uploads'; folder.mkdir()
+    (folder/'owned-key.pdf').write_bytes(b'%PDF-owned')
+    (folder/'foreign-key.pdf').write_bytes(b'%PDF-foreign')
+    monkeypatch.setattr(migration, 'get_user_by_email', lambda email: SimpleNamespace(id=4))
+    def listing(owner):
+        assert owner == 4
+        return [{'filename': 'report.pdf', 'id': 10}]
+    monkeypatch.setattr(migration, 'get_all_documents', listing)
+    def document(id, owner):
+        assert (id, owner) == (10, 4)
+        return SimpleNamespace(storage_key='owned-key.pdf', filename='report.pdf')
+    monkeypatch.setattr(migration, 'get_document_by_id', document)
+    seen=[]
+    monkeypatch.setattr(migration, 'validate_pdf', lambda path: seen.append(path.name))
+    monkeypatch.setattr('sys.argv', ['migrate', '--owner-email', 'owner@example.com', '--dry-run'])
+    assert migration.main() == 0
+    assert seen == ['owned-key.pdf']
+
+
+def test_export_symlinks_are_rejected(monkeypatch, tmp_path):
+    import pytest
+    folder = tmp_path/'export'; folder.mkdir()
+    target=tmp_path/'foreign.pdf'; target.write_bytes(b'%PDF-foreign')
+    (folder/'linked.pdf').symlink_to(target)
+    monkeypatch.setattr('sys.argv', ['migrate', '--uploads-dir', str(folder), '--dry-run'])
+    with pytest.raises(SystemExit): migration.main()
